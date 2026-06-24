@@ -78,6 +78,7 @@ struct Index {
           this.refreshInterval = s.refreshInterval; this.setupAutoRefresh();
         }).catch((): void => {});
         this.loadSearchHistory();
+        this.loadLastCity();
       }).catch((): void => {});
       try {
         let params = router.getParams() as Record<string, Object>;
@@ -105,9 +106,9 @@ struct Index {
           this.history = r[2];
         }).catch((): void => {});
         this.loadSearchHistory();
-      }).catch((): void => {});
-      this.checkRouteParam();
-    } catch (_e) { this.checkRouteParam(); }
+        this.loadLastCity();
+      }).catch((): void => { this.loadLastCity(); });
+    } catch (_e) { this.loadLastCity(); }
   }
 
   checkRouteParam(): void {

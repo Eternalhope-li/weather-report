@@ -59,26 +59,12 @@ class PreferenceManager {
   // ========== 城市历史记录 ==========
 
   async getLastCity(): Promise<string> {
-    if (this.store === null) return '深圳';
-    try {
-      let predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates('history');
-      predicates.orderByDesc('visited_at');
-      predicates.limitAs(1);
-      let rs: relationalStore.ResultSet = await this.store.query(predicates, ['city']);
-      let result: string = '深圳';
-      if (rs.rowCount > 0 && rs.goToFirstRow()) {
-        result = rs.getString(rs.getColumnIndex('city'));
-      }
-      rs.close();
-      return result;
-    } catch (e) {
-      console.error('getLastCity error: ' + JSON.stringify(e));
-      return '深圳';
-    }
+    let val: string = await this.getSetting('last_city', '');
+    if (val.length > 0) { return val; }
+    return '深圳';
   }
-
   async saveLastCity(city: string): Promise<void> {
-    // 已由 addToHistory 维护，无需重复操作
+    await this.saveSetting('last_city', city);
   }
 
   async getHistory(): Promise<string[]> {
@@ -318,5 +304,6 @@ async getLocationId(city: string): Promise<string | null> {
 
 const prefManager: PreferenceManager = new PreferenceManager();
 export default prefManager;
+
 
 
