@@ -10,9 +10,9 @@ export const cardAccentDay = "rgba(255,255,255,0.42)";
 export const cardAuxDay = "rgba(59,120,194,0.10)";
 
 // ==================== 夜间卡片（夜空深蓝基调）====================
-export const cardMainNight = "rgba(16,20,34,0.85)";
-export const cardSubNight = "rgba(20,26,42,0.78)";
-export const cardAccentNight = "rgba(26,32,52,0.90)";
+export const cardMainNight = "rgba(14,18,32,0.90)";
+export const cardSubNight = "rgba(18,24,40,0.85)";
+export const cardAccentNight = "rgba(22,28,48,0.92)";
 export const cardAuxNight = "rgba(80,160,255,0.12)";
 // 夜间纯色备用
 export const cardSolidNight = "#0E1222";
@@ -36,15 +36,15 @@ export const TC_DAY_TEMP = "#0F243D";
 export const TC_DAY_TEMP_UNIT = "#2B6CB2";
 export const TC_DAY_HILO = "#2C4A6E";
 
-// ==================== 夜间文字（夜空风：暖白+冰蓝）====================
-export const TC_NIGHT_PRIMARY = "#F0F4FC";    // 暖白
-export const TC_NIGHT_ACCENT = "#6CB8FF";     // 冰蓝（温度数值、图标）
-export const TC_NIGHT_SECONDARY = "#D0D8EA";  // 浅灰蓝
-export const TC_NIGHT_TERTIARY = "#A8B4CE";   // 灰蓝
-export const TC_NIGHT_MUTED = "#7888A8";      // 暗灰蓝
-export const TC_NIGHT_TEMP = "#F0F4FC";       // 温度主色
-export const TC_NIGHT_TEMP_UNIT = "#6CB8FF";  // 温度单位
-export const TC_NIGHT_HILO = "#D0D8EA";       // 高低温度
+// ==================== 夜间文字（3档淡蓝白，护眼清晰）====================
+export const TC_NIGHT_PRIMARY = "#F2F6FC";    // 第1档：亮白（主要文字、温度）
+export const TC_NIGHT_ACCENT = "#80C0FF";     // 冰蓝（温度数值、图标）
+export const TC_NIGHT_SECONDARY = "#DCE2F0";  // 第2档：淡蓝白（辅助文字）
+export const TC_NIGHT_TERTIARY = "#C4CCE0";   // 第3档：浅灰蓝（次要说明）
+export const TC_NIGHT_MUTED = "#98A8C4";      // 暗灰蓝（时间戳等最弱文字）
+export const TC_NIGHT_TEMP = "#F2F6FC";       // 温度主色（同第1档）
+export const TC_NIGHT_TEMP_UNIT = "#80C0FF";  // 温度单位（冰蓝）
+export const TC_NIGHT_HILO = "#DCE2F0";       // 高低温度（第2档）
 
 // ==================== 函数接口 ====================
 export function cardMain(isNight: boolean): string {
@@ -102,5 +102,5 @@ export function tcHiLo(isNight: boolean): string {
   return isNight ? TC_NIGHT_HILO : TC_DAY_HILO;
 }
 export const accentBlue = "#2B6CB2";
-export const accentBlueLight = "#6CB8FF";
+export const accentBlueLight = "#80C0FF";
 export const accentBlueDark = "#1A4A7A";
