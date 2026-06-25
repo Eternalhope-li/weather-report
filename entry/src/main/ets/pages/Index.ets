@@ -207,7 +207,7 @@ struct Index {
     console.info("[Weather] loadW #" + seq + " city=\"" + q + "\"");
     this.loading = true;
     this.error = "";
-    this.showCachedFirst(q);
+    // this.showCachedFirst(q);
 
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
@@ -930,6 +930,7 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
 
 
 
