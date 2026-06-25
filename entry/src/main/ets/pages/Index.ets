@@ -95,7 +95,8 @@ struct Index {
         console.info("[CitySwitch] detect pending city: " + pendingCity);
         clearPendingCity();
         this.citySwitchPending = true;
-        this.loadW(pendingCity);
+        // 先刷新收藏列表（CityManage可能已增删），再加载天气
+        this.refreshFavoritesBeforeLoad(pendingCity);
         return;
       }
     } catch (_e) {}
@@ -106,25 +107,43 @@ struct Index {
         let switchTo: string = String(params.switchCity);
         if (switchTo.length > 0) {
           this.citySwitchPending = true;
-          this.loadW(cleanCityName(switchTo));
+          this.refreshFavoritesBeforeLoad(cleanCityName(switchTo));
           return;
         }
       }
     } catch (_e) {}
-    // 从设置页返回时重新加载设置（深色模式、温度单位）
-    this.reloadSettingsFromDB();
+    // 从设置页返回时重新加载设置+收藏
+    this.reloadAllState();
   }
 
-  /** 从DB重新加载设置（用于从Settings页返回后同步） */
-  reloadSettingsFromDB(): void {
+  /** 从CityManage返回时：先刷新收藏列表，再加载天气 */
+  refreshFavoritesBeforeLoad(city: string): void {
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
-        prefManager.getSettings().then((s): void => {
-          this.tempUnit = s.tempUnit;
-          this.isDark = s.darkMode === 'true';
-          this.refreshInterval = s.refreshInterval;
+        prefManager.getFavorites().then((favs: string[]): void => {
+          this.favorites = favs;
+          this.loadW(city);
+        }).catch((): void => { this.loadW(city); });
+      }).catch((): void => { this.loadW(city); });
+    } catch (_e) { this.loadW(city); }
+  }
+
+  /** 从DB重新加载设置（用于从Settings页返回后同步） */
+  reloadAllState(): void {
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      prefManager.init(ctx).then((): void => {
+        Promise.all([
+          prefManager.getSettings(),
+          prefManager.getFavorites()
+        ]).then((r): void => {
+          this.tempUnit = r[0].tempUnit;
+          this.isDark = r[0].darkMode === 'true';
+          this.refreshInterval = r[0].refreshInterval;
           this.setupAutoRefresh();
+          this.favorites = r[1];
+          this.isFav = r[1].indexOf(this.city) >= 0;
         }).catch((): void => {});
       }).catch((): void => {});
     } catch (_e) {}
@@ -876,14 +895,14 @@ struct Index {
 
   // ==================== 工具方法 ====================
 
-  /** 收藏/取消收藏 */
+  /** 收藏/取消收藏 - 基于DB结果更新状态 */
   toggleFav(): void {
-    this.isFav = !this.isFav;
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
         prefManager.toggleFavorite(this.city).then((list: string[]): void => {
           this.favorites = list;
+          this.isFav = list.indexOf(this.city) >= 0;
         }).catch((): void => {});
       }).catch((): void => {});
     } catch (_e) {}
