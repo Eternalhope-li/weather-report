@@ -1,51 +1,55 @@
 ﻿/**
  * theme — 全局统一主题常量
  * 所有页面统一导入使用，定义全项目磨砂卡片、文字、渐变配色
+ * 日间：蓝白通透风格 / 夜间：护眼深色模式
  */
 // ==================== 卡片半透明磨砂背景 ====================
-/** 日间主大卡片：rgba(255,255,255,0.22) backdropBlur(24vp) */
-export const cardMainDay = 'rgba(255,255,255,0.15)';
-/** 日间小卡片：rgba(255,255,255,0.16) backdropBlur(18vp) */
-export const cardSubDay = 'rgba(255,255,255,0.10)';
+/** 日间主大卡片：更高透明度，背景更通透 */
+export const cardMainDay = 'rgba(255,255,255,0.20)';
+/** 日间小卡片 */
+export const cardSubDay = 'rgba(255,255,255,0.13)';
 /** 日间强调卡片 */
-export const cardAccentDay = 'rgba(255,255,255,0.18)';
-/** 夜间主大卡片：rgba(30,42,60,0.3) backdropBlur(24vp) */
-export const cardMainNight = 'rgba(22,28,42,0.35)';
-/** 夜间小卡片：rgba(30,42,60,0.22) backdropBlur(18vp) */
-export const cardSubNight = 'rgba(22,28,42,0.22)';
+export const cardAccentDay = 'rgba(255,255,255,0.25)';
+/** 夜间主大卡片（护眼深色，更高透明度让背景渐变可见） */
+export const cardMainNight = 'rgba(26,30,36,0.35)';
+/** 夜间小卡片 */
+export const cardSubNight = 'rgba(26,30,36,0.20)';
 /** 夜间强调卡片 */
-export const cardAccentNight = 'rgba(26,32,48,0.45)';
+export const cardAccentNight = 'rgba(30,34,44,0.50)';
 
 // ==================== 边框 ====================
-export const borderDay = 'rgba(255,255,255,0.3)';
-export const borderSubDay = 'rgba(255,255,255,0.25)';
+export const borderDay = 'rgba(255,255,255,0.35)';
+export const borderSubDay = 'rgba(255,255,255,0.28)';
 export const borderNight = 'rgba(255,255,255,0.10)';
 export const borderSubNight = 'rgba(255,255,255,0.06)';
-export const shadowDay = 'rgba(100,140,190,0.15)';
-export const shadowNight = 'rgba(0,0,0,0.45)';
+export const shadowDay = 'rgba(80,120,170,0.12)';
+export const shadowNight = 'rgba(0,0,0,0.40)';
 
 // ==================== 日间文字配色 ====================
-/** 主文字深海军蓝 */
+/** 主文字深海军蓝 - 高对比度 */
 export const TC_DAY_PRIMARY = '#0F243D';
 /** 主题蓝图标 */
-export const TC_DAY_ACCENT = '#3B78C2';
-/** 辅助浅灰蓝 */
-export const TC_DAY_SECONDARY = '#4A6482';
-export const TC_DAY_TERTIARY = '#4A6482';
-export const TC_DAY_MUTED = '#6E87A0';
+export const TC_DAY_ACCENT = '#2B6CB2';
+/** 辅助文字 */
+export const TC_DAY_SECONDARY = '#2C4A6E';
+export const TC_DAY_TERTIARY = '#3A5A7A';
+export const TC_DAY_MUTED = '#5A7A98';
 export const TC_DAY_TEMP = '#0F243D';
-export const TC_DAY_TEMP_UNIT = '#3B78C2';
-export const TC_DAY_HILO = '#4A6482';
+export const TC_DAY_TEMP_UNIT = '#2B6CB2';
+export const TC_DAY_HILO = '#2C4A6E';
 
-// ==================== 夜间文字配色 ====================
-export const TC_NIGHT_PRIMARY = '#EFF1F5';
-export const TC_NIGHT_ACCENT = '#6BA9E8';
-export const TC_NIGHT_SECONDARY = '#C8CDD6';
-export const TC_NIGHT_TERTIARY = '#9CA5B4';
-export const TC_NIGHT_MUTED = '#78839A';
-export const TC_NIGHT_TEMP = '#EFF1F5';
-export const TC_NIGHT_TEMP_UNIT = '#6BA9E8';
-export const TC_NIGHT_HILO = '#C8CDD6';
+// ==================== 夜间文字配色（护眼模式）====================
+/** 主文字 - 柔白高对比 */
+export const TC_NIGHT_PRIMARY = '#F0F2F5';
+/** 主题蓝图标 - 亮蓝 */
+export const TC_NIGHT_ACCENT = '#5BA3E6';
+/** 辅助文字 - 浅灰白 */
+export const TC_NIGHT_SECONDARY = '#D0D4DA';
+export const TC_NIGHT_TERTIARY = '#B0B6C2';
+export const TC_NIGHT_MUTED = '#8A92A0';
+export const TC_NIGHT_TEMP = '#F0F2F5';
+export const TC_NIGHT_TEMP_UNIT = '#5BA3E6';
+export const TC_NIGHT_HILO = '#D0D4DA';
 
 // ==================== 函数接口 ====================
 export function cardMain(isNight: boolean): string {
@@ -101,11 +105,6 @@ export function tcHiLo(isNight: boolean): string {
   return isNight ? TC_NIGHT_HILO : TC_DAY_HILO;
 }
 
-export const accentBlue = '#3B78C2';
-export const accentBlueLight = '#73A9E8';
-export const accentBlueDark = '#2D5B96';
-
-
-
-
-
+export const accentBlue = '#2B6CB2';
+export const accentBlueLight = '#5BA3E6';
+export const accentBlueDark = '#1A4A7A';

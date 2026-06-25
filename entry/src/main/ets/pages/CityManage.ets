@@ -6,7 +6,6 @@ import {
   cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted
 } from "../model/ThemeManager";
-import searchHistoryManager from "../service/SearchHistoryManager";
 import loadingManager from "../service/LoadingManager";
 import { LoadingComponent } from "../components/LoadingComponent";
 
@@ -19,7 +18,7 @@ import { LoadingComponent } from "../components/LoadingComponent";
 @Component
 struct CityManage {
   @State cities: string[] = [];
-  @State searchHistory: string[] = [];
+
   @State newCity: string = "";
   @State isDark: boolean = false;
   @State selectedCity: string = "";
@@ -35,38 +34,17 @@ struct CityManage {
     this.loadCityData();
   }
 
-  /** 加载城市列表和搜索历史 */
+  /** 加载收藏城市列表 */
   loadCityData(): void {
     let ctx: Context = this.getUIContext().getHostContext()!;
     prefManager.init(ctx).then((): void => {
-      prefManager.getHistory().then((h: string[]): void => {
-        // 自动去重
-        this.cities = this.deduplicateCities(h);
+      prefManager.getFavorites().then((favs: string[]): void => {
+        this.cities = favs;
       }).catch((): void => {});
       prefManager.getLastCity().then((c: string): void => {
         this.selectedCity = c;
       }).catch((): void => {});
     }).catch((): void => {});
-
-    searchHistoryManager.init(ctx).then((): void => {
-      searchHistoryManager.getHistory().then((items): void => {
-        this.searchHistory = items.map((item): string => item.cityName);
-      }).catch((): void => {});
-    }).catch((): void => {});
-  }
-
-  /** 城市数组去重（保留首次出现的顺序） */
-  deduplicateCities(arr: string[]): string[] {
-    let seen: Set<string> = new Set();
-    let result: string[] = [];
-    for (let i: number = 0; i < arr.length; i++) {
-      let city: string = arr[i];
-      if (!seen.has(city)) {
-        seen.add(city);
-        result.push(city);
-      }
-    }
-    return result;
   }
 
   /** 加载深色模式设置 */
@@ -91,28 +69,20 @@ struct CityManage {
     this.getUIContext().getRouter().back();
   }
 
-  /** 添加城市到列表 */
+  /** 搜索城市并切换（收藏仅通过首页☆按钮操作） */
   addNewCity(cityName: string): void {
     let q: string = cleanCityName(cityName.trim());
     if (q.length === 0) { return; }
-    // 去重：如果已存在则直接选中跳转
-    if (this.cities.indexOf(q) >= 0) {
-      this.selectCityAndGo(q);
-      return;
-    }
-    loadingManager.show();
-    prefManager.addToHistory(q).then((h: string[]): void => {
-      this.cities = this.deduplicateCities(h);
-      this.newCity = "";
-      loadingManager.hide();
-    }).catch((): void => { loadingManager.hide(); });
+    this.newCity = "";
+    // 直接在首页加载该城市天气，用户可通过☆按钮收藏
+    this.selectCityAndGo(q);
   }
 
-  /** 删除城市 */
+  /** 从收藏夹删除城市 */
   removeCity(city: string): void {
     loadingManager.show();
-    prefManager.removeFromHistory(city).then((h: string[]): void => {
-      this.cities = this.deduplicateCities(h);
+    prefManager.removeFavorite(city).then((favs: string[]): void => {
+      this.cities = favs;
       if (this.selectedCity === city) {
         this.selectedCity = this.cities.length > 0 ? this.cities[0] : "";
       }
@@ -163,7 +133,7 @@ struct CityManage {
             if (this.cities.length > 0) {
               Column() {
                 Row() {
-                  Text("\uD83D\uDCCD 已存城市").fontSize(14).fontColor(tcTertiary(this.isDark))
+                  Text("\u2B50 收藏城市").fontSize(14).fontColor(tcTertiary(this.isDark))
                   Blank()
                 }.width("100%").margin({ bottom: 8, top: 12 })
 
@@ -175,26 +145,8 @@ struct CityManage {
               }.width("100%")
             }
 
-            // ---- 搜索历史（排除已在 cities 中的） ----
-            if (this.searchHistory.length > 0) {
-              Column() {
-                Row() {
-                  Text("\uD83D\uDD50 搜索历史").fontSize(14).fontColor(tcTertiary(this.isDark))
-                  Blank()
-                }.width("100%").margin({ bottom: 8, top: 16 })
-
-                ForEach(this.searchHistory, (city: string): void => {
-                  if (this.cities.indexOf(city) < 0) {
-                    if (typeof city === "string") {
-                      this.cityCard(city, city === this.selectedCity)
-                    }
-                  }
-                }, (city: string): string => city)
-              }.width("100%")
-            }
-
             // 空状态
-            if (this.cities.length === 0 && this.searchHistory.length === 0) {
+            if (this.cities.length === 0) {
               Column() {
                 Text("\uD83C\uDFD4\uFE0F").fontSize(48).margin({ top: 40 })
                 Text("暂无城市数据").fontSize(16).fontColor(tcTertiary(this.isDark)).margin({ top: 12 })
@@ -216,7 +168,7 @@ struct CityManage {
     Row() {
       Text(isSelected ? "\u2B50" : "\uD83D\uDCCD").fontSize(16).margin({ right: 10 })
       Text(city).fontSize(16).fontWeight(isSelected ? FontWeight.Bold : FontWeight.Normal)
-        .fontColor(isSelected ? "#0F243D" : tcSecondary(this.isDark)).layoutWeight(1)
+        .fontColor(isSelected ? tcPrimary(this.isDark) : tcSecondary(this.isDark)).layoutWeight(1)
       if (isSelected) {
         Text("\u2714\uFE0F").fontSize(14).fontColor("#3B78C2").margin({ right: 8 })
       }

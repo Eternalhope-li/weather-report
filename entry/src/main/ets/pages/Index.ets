@@ -77,6 +77,8 @@ struct Index {
   private refreshTimer: number = -1;
   private requestSeq: number = 0;
   private citySwitchPending: boolean = false;
+  // ==================== AppStorage 跨页面通信 ====================
+  // AppStorage city switching handled via onPageShow + CitySwitch helper
   @State isRefreshing: boolean = false;
 
   // ==================== 生命周期 ====================
@@ -198,9 +200,11 @@ struct Index {
 
   /**
    * 核心加载方法：按高德->和风顺序获取天气
-   * 所有路径末尾都会调用 loadingManager.hide()
+   * 切换城市时先清空旧预报数据，防止缓存污染
    */
   async loadW(city: string): Promise<void> {
+    this.hourly = [];
+    this.daily = [];
     let q: string = city.trim();
     if (q.length === 0) { loadingManager.hide(); return; }
     this.requestSeq++;
@@ -208,7 +212,9 @@ struct Index {
     console.info("[Weather] loadW #" + seq + " city=\"" + q + "\"");
     this.loading = true;
     this.error = "";
-    // this.showCachedFirst(q);
+    // 清空旧预报数据，防止UI显示上次城市的缓存数据
+    this.hourly = [];
+    this.daily = [];
 
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
@@ -216,6 +222,7 @@ struct Index {
     } catch (_e) {}
 
     try {
+      // 强制刷新：追加随机参数防止和风CDN缓存
       let data: WeatherData = await weatherService.fetchWeather(q);
       // 校验请求序号，防止过时响应覆盖
       if (seq !== this.requestSeq) {
@@ -324,6 +331,18 @@ struct Index {
     }).catch((): void => { this.loading = false; });
   }
 
+  /** 删除单条搜索历史 */
+  deleteSearchHistoryItem(city: string): void {
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      searchHistoryManager.init(ctx).then((): void => {
+        searchHistoryManager.deleteHistory(city).then((): void => {
+          this.loadSearchHistory();
+        }).catch((): void => {});
+      }).catch((): void => {});
+    } catch (_e) {}
+  }
+
   /** 加载搜索历史 */
   loadSearchHistory(): void {
     try {
@@ -372,15 +391,18 @@ struct Index {
         }.width('100%').height('100%')
       }
 
-      // 雨雪粒子特效
-      RainSnowEffect({ particleType: this.rainSnowType, density: 1 })
+      // 雨雪粒子特效（弹窗打开时暂停以降低渲染开销）
+      if (!this.showHourlyPop) {
+        RainSnowEffect({ particleType: this.rainSnowType, density: 1 })
+      }
 
       // 加载骨架屏（仅首次加载时显示）
       if (this.loading && this.error.length === 0) {
         this.skeletonView()
       }
 
-      // 主内容区域（可纵向滚动 + 下拉刷新）
+      // 主内容区域（可纵向滚动 + 下拉刷新；弹窗打开时隐藏以隔离渲染）
+      if (!this.showHourlyPop) {
       Refresh({ refreshing: $$this.isRefreshing }) {
         Scroll() {
           Column() {
@@ -430,6 +452,7 @@ struct Index {
           this.isRefreshing = false;
         });
       })
+      } // end if !showHourlyPop
 
       // 搜索面板（点击🔍展开）
       if (this.showSearch) {
@@ -600,7 +623,7 @@ struct Index {
             .width(50).textAlign(TextAlign.Center).margin({ left: 4 })
           Blank()
           Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14)
-            .fontColor(tcTertiary(this.isDark)).margin({ right: 8 })
+            .fontColor(tcSecondary(this.isDark)).margin({ right: 8 })
           // 温度条
           Row() {
             Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4)
@@ -724,13 +747,20 @@ struct Index {
         Text($r('app.string.search_history')).fontSize(13).fontColor(tcTertiary(this.isDark))
           .width("100%").margin({ top: 16, bottom: 8 })
         ForEach(this.searchHistory, (city: string): void => {
-          Text(city).fontSize(15).fontColor(tcSecondary(this.isDark))
-            .padding({ top: 8, bottom: 8 }).width("100%")
-            .onClick((): void => {
-              this.searchText = city;
-              this.showSearch = false;
-              this.loadW(city);
-            })
+          Row() {
+            Text(city).fontSize(15).fontColor(tcSecondary(this.isDark))
+              .layoutWeight(1)
+              .onClick((): void => {
+                this.searchText = city;
+                this.showSearch = false;
+                this.loadW(city);
+              })
+            Text(" \u2716").fontSize(14).fontColor("rgba(255,120,120,0.7)")
+              .padding({ left: 12, right: 4, top: 4, bottom: 4 })
+              .onClick((): void => {
+                this.deleteSearchHistoryItem(city);
+              })
+          }.width("100%").padding({ top: 6, bottom: 6 })
         }, (city: string): string => city)
       }
     }
@@ -738,74 +768,109 @@ struct Index {
     .backgroundColor(cardAccent(this.isDark)).backdropBlur(16)
   }
 
-  /** 逐小时详情弹窗 */
+  /** 逐小时详情弹窗 - 全屏置顶隔离渲染 */
   @Builder hourlyPopup() {
-    Column() {
+    Stack() {
+      // 背景渐变层 - 蓝白通透风格
+      Column()
+        .width("100%").height("100%")
+        .linearGradient({
+          direction: GradientDirection.Bottom,
+          colors: [["rgba(25,60,120,0.92)", 0], ["rgba(45,90,160,0.85)", 0.4], ["rgba(75,130,200,0.78)", 0.7], ["rgba(110,170,230,0.70)", 1]]
+        })
+        .onClick((): void => { this.showHourlyPop = false; })
+
+      // 内容层：可滚动
       Column() {
-        // 头部：图标 + 描述 + 时间 + 关闭
-        Row() {
-          Text(this.popWeatherIcon).fontSize(36).margin({ right: 12 })
+        Scroll() {
+        Column() {
+          // 天气图标 + 温度 + 时间
           Column() {
-            Text(this.popWeatherDesc).fontSize(18).fontWeight(FontWeight.Bold)
-              .fontColor(tcPrimary(this.isDark))
-            Text(this.popTime.length >= 16
-              ? this.popTime.substring(11, 16) + "  " + this.popTime.substring(0, 10)
-              : this.popTime)
-              .fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 3 })
-          }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-          Text("\u2716").fontSize(24).fontColor(tcSecondary(this.isDark)).width(36).height(36)
-            .textAlign(TextAlign.Center).lineHeight(36)
-            .borderRadius(18).backgroundColor(cardBgStrong(this.isDark))
+            Text(this.popWeatherIcon).fontSize(64)
+            Text(this.popWeatherDesc).fontSize(20).fontWeight(FontWeight.Medium)
+              .fontColor("#FFFFFF").margin({ top: 6 }).letterSpacing(2)
+            Row() {
+              Text(convertTempStr(this.popTemp, this.tempUnit))
+                .fontSize(56).fontWeight(FontWeight.Bold).fontColor("#FFFFFF")
+              Text(tempUnitLabel(this.tempUnit))
+                .fontSize(28).fontWeight(FontWeight.Bold).fontColor("rgba(255,255,255,0.75)")
+                .margin({ top: 8 })
+            }.alignItems(VerticalAlign.Center).margin({ top: 4 })
+
+            Text("\u4F53\u611F " + convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
+              .fontSize(15).fontColor("rgba(255,255,255,0.65)").margin({ top: 6 })
+
+            if (this.popTime.length > 0) {
+              Text(this.popTime.length >= 16
+                ? this.popTime.substring(0, 10) + "  " + this.popTime.substring(11, 16)
+                : this.popTime)
+                .fontSize(13).fontColor("rgba(255,255,255,0.5)")
+                .margin({ top: 6 })
+            }
+          }.width("100%").alignItems(HorizontalAlign.Center)
+            .padding({ top: 24, bottom: 24 })
+            .backgroundColor("rgba(255,255,255,0.08)")
+            .backdropBlur(20)
+            .borderRadius(28)
+            .border({ width: 0.5, color: "rgba(255,255,255,0.15)" })
+
+          Blank().height(16)
+
+          // 第一行：降水概率 / 降水量 / 气压
+          Row() {
+            this.bpDetailItem("\uD83C\uDF27\uFE0F", "\u964D\u6C34\u6982\u7387",
+              (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%")
+            this.bpDetailItem("\uD83D\uDCA7", "\u964D\u6C34\u91CF",
+              (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm")
+            this.bpDetailItem("\uD83C\uDF2B\uFE0F", "\u6C14\u538B",
+              (this.popPressure !== "--" ? this.popPressure : "-") + "hPa")
+          }.width("100%")
+
+          Blank().height(12)
+
+          // 第二行：湿度 / 风力
+          Row() {
+            this.bpDetailItem("\uD83D\uDCA7", "\u6E7F\u5EA6", this.popHumidity + "%")
+            this.bpDetailItem("\uD83C\uDF21\uFE0F", "\u98CE\u529B",
+              this.popWindScale.length > 0 ? this.popWindScale + "\u7EA7" : this.popWindSpeed)
+          }.width("100%")
+
+          Blank().height(20)
+
+          // 返回按钮
+          Button("\u8FD4\u56DE")
+            .width("100%").height(48).borderRadius(24)
+            .backgroundColor("rgba(59,120,194,0.7)")
+            .backdropBlur(12)
+            .fontColor("#FFFFFF").fontSize(16).fontWeight(FontWeight.Medium)
             .onClick((): void => { this.showHourlyPop = false; })
-        }.width("100%").margin({ bottom: 20 })
-
-        // 温度
-        Text(convertTempStr(this.popTemp, this.tempUnit) + tempUnitLabel(this.tempUnit))
-          .fontSize(48).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
-          .width("100%").textAlign(TextAlign.Center)
-
-        Text("体感 " + convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
-          .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ top: 4, bottom: 20 })
-          .width("100%").textAlign(TextAlign.Center)
-
-        // 详细数据 2x3 网格
-        Row() {
-          this.detailItem("\uD83C\uDF27\uFE0F", "降水概率",
-            (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%")
-          this.detailItem("\uD83D\uDCA7", "降水量",
-            (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm")
-          this.detailItem("\uD83C\uDF2B\uFE0F", "气压",
-            (this.popPressure !== "--" ? this.popPressure : "-") + "hPa")
-        }.width("100%").padding(14).borderRadius(20)
-          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 10 })
-
-        Row() {
-          this.detailItem("\uD83D\uDCA7", "湿度", this.popHumidity + "%")
-          this.detailItem("\uD83C\uDF21\uFE0F", "风力",
-            this.popWindScale.length > 0 ? this.popWindScale + "\u7EA7" : this.popWindSpeed)
-          this.detailItem("\u2600\uFE0F", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-")
-        }.width("100%").padding(14).borderRadius(20)
-          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 10 })
-
-        // 关闭按钮
-        Button("关闭").width("100%").height(46).borderRadius(23)
-          .backgroundColor(cardMain(this.isDark)).fontColor(tcPrimary(this.isDark))
-          .fontWeight(FontWeight.Bold).backdropBlur(12)
-          .onClick((): void => { this.showHourlyPop = false; })
-      }.width("100%").padding(24).borderRadius(32).backgroundColor(cardFrost(this.isDark))
+        }
+        .width("100%").padding({ left: 20, right: 20, top: 48, bottom: 20 })
+        }
+        .scrollBar(BarState.Off).width("100%")
+      }
+      .width("100%").height("100%")
+      .padding({ top: 40 })
     }
-    .width("100%").height("100%").padding(24).justifyContent(FlexAlign.Center)
-    .backgroundColor("rgba(0,0,0,0.65)")
-    .onClick((): void => { this.showHourlyPop = false; })
-  }  /** 通用详情小格子 */
-  @Builder detailItem(icon: string, label: ResourceStr, value: string) {
-    Column() {
-      Text(icon).fontSize(18)
-      Text(label).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
-      Text(value).fontSize(15).fontWeight(FontWeight.Bold)
-        .fontColor(tcPrimary(this.isDark)).margin({ top: 2 })
-    }.alignItems(HorizontalAlign.Center).layoutWeight(1)
   }
+
+@Builder bpDetailItem(icon: string, label: string, value: string) {
+    Column() {
+      Text(icon).fontSize(22)
+      Text(label).fontSize(12).fontColor("rgba(255,255,255,0.75)")
+        .margin({ top: 6 })
+      Text(value).fontSize(18).fontWeight(FontWeight.Bold)
+        .fontColor("#FFFFFF").margin({ top: 4 })
+    }
+    .alignItems(HorizontalAlign.Center).layoutWeight(1)
+    .padding({ top: 18, bottom: 16 })
+    .backgroundColor("rgba(255,255,255,0.12)")
+    .backdropBlur(18)
+    .borderRadius(20)
+    .margin({ left: 4, right: 4 })
+    .border({ width: 0.5, color: "rgba(255,255,255,0.15)" })
+  }
+
 
   // ==================== 工具方法 ====================
 
@@ -931,6 +996,7 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
 
 
 

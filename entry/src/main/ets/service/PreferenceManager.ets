@@ -272,6 +272,24 @@ class PreferenceManager {
     }
   }
 
+  /** 从收藏列表删除单个城市 */
+  async removeFavorite(city: string): Promise<string[]> {
+    if (this.store === null) return [];
+    try {
+      let val: string = await this.getSetting('favorites', '[]');
+      let list: string[] = JSON.parse(val) as string[];
+      let idx: number = list.indexOf(city);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        await this.saveSetting('favorites', JSON.stringify(list));
+      }
+      return list;
+    } catch (e) {
+      console.error('removeFavorite error: ' + JSON.stringify(e));
+      return [];
+    }
+  }
+
   async isFavorite(city: string): Promise<boolean> {
     if (this.store === null) return false;
     try {

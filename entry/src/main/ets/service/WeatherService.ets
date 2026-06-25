@@ -282,16 +282,15 @@ async function parseQWeather(raw: string, cityName: string): Promise<WeatherData
       }
     } catch (_ae) {}
     let current: CurrentWeather = parseCurrent(nowJson, airJson);
-        try {
-      if (semi3 > 0) {
-        let p4: string = raw.substring(semi3 + 1);
-        if (p4.length > 0) { airJson = JSON.parse(p4) as QWeatherAirRoot; }
-      }
-    } catch (_ae) {}
     let dailyArr: QWeatherDayItem[] = dailyJson.daily ?? [];
     let hourlyArr: QWeatherHourItem[] = hourlyJson.hourly ?? [];
     let daily: DailyForecast[] = parseDaily(dailyArr);
     let hourly: HourlyForecast[] = parseHourly(hourlyArr);
+
+    // QWeather weather/now endpoint does NOT return uvIndex. Patch from daily[0].
+    if (current.uvIndex === "--" && daily.length > 0 && daily[0].uvIndex !== "--") {
+      current.uvIndex = daily[0].uvIndex;
+    }
 
     let city: string = cityName;
     if (city === "null" || city.length === 0) { city = cityName; }
@@ -355,10 +354,11 @@ class WeatherService {
   private async fetchQWeather(cityName: string, locationId: string): Promise<WeatherData> {
     let result: WeatherData = makeEmpty(cityName);
     try {
-      let nowUrl: string = QWEATHER_BASE + "/now?location=" + locationId;
-      let dailyUrl: string = QWEATHER_BASE + "/3d?location=" + locationId;
-      let hourlyUrl: string = QWEATHER_BASE + "/24h?location=" + locationId;
-      let airUrl: string = QWEATHER_AIR + "?location=" + locationId;
+      let cbts: string = "&_=" + String(Date.now());
+      let nowUrl: string = QWEATHER_BASE + "/now?location=" + locationId + cbts;
+      let dailyUrl: string = QWEATHER_BASE + "/3d?location=" + locationId + cbts;
+      let hourlyUrl: string = QWEATHER_BASE + "/24h?location=" + locationId + cbts;
+      let airUrl: string = QWEATHER_AIR + "?location=" + locationId + cbts;
 
       // 1. 实时天气
       let nowRaw: string | null = await httpGetQWeather(nowUrl);
@@ -438,6 +438,12 @@ class WeatherService {
       console.error("amapGeoFallback error", JSON.stringify(e));
       return "";
     }
+  }
+
+  private async clearLocationCache(city: string): Promise<void> {
+    try {
+      await prefManager.saveLocationId(city, "");
+    } catch (_e) {}
   }
 
   private async geoLookup(city: string): Promise<string> {
