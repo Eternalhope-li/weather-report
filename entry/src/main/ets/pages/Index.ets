@@ -424,7 +424,8 @@ struct Index {
 
       // 主内容区域（可纵向滚动 + 下拉刷新；弹窗打开时隐藏以隔离渲染）
       if (!this.showHourlyPop) {
-      Refresh({ refreshing: $$this.isRefreshing }) {
+      Refresh({ refreshing: $$this.isRefreshing })
+      .showRefreshProgress(false)
         Scroll() {
           Column() {
           // 顶部导航栏：城市名 + 功能按钮
