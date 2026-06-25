@@ -1,5 +1,4 @@
 import router from '@ohos.router';
-import promptAction from '@ohos.promptAction';
 import prefManager from '../service/PreferenceManager';
 import { cleanCityName } from '../model/TemperatureConverter';
 import { bgGradient, cardBg, cardAccent, cardSecondary, cardBorder, cardBorderSub, tcPrimary, tcSecondary, tcTertiary, tcMuted, cardMain } from '../model/ThemeManager';
@@ -15,7 +14,7 @@ struct CityManage {
   @State newCity: string = '';
   @State isDark: boolean = false;
   @State selectedCity: string = '';
-  private searchController: TextInputController = new TextInputController();
+  
 
   aboutToAppear(): void {
     this.loadThemeSettings();
@@ -25,7 +24,7 @@ struct CityManage {
   onPageShow(): void {
     this.loadThemeSettings();
     this.loadCityData();
-    try { this.searchController.requestFocus(); } catch (_e) {}
+    try { focusControl.requestFocus('searchInput'); } catch (_e) {}
   }
 
   loadCityData(): void {
@@ -87,7 +86,7 @@ struct CityManage {
 
         // 搜索输入框（自动聚焦）
         Row() {
-          TextInput({ placeholder: $r('app.string.input_city_hint'), controller: this.searchController })
+          TextInput({ placeholder: $r('app.string.input_city_hint') }).id('searchInput').focusable(true).id('searchInput').focusable(true)
             .height(48).layoutWeight(1)
             .backgroundColor(cardMain(this.isDark)).backdropBlur(18)
             .border({ width: 0.5, color: cardBorderSub(this.isDark) })
