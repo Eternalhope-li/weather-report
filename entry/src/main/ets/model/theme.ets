@@ -38,14 +38,14 @@ export const TC_DAY_TEMP_UNIT = '#3B78C2';
 export const TC_DAY_HILO = '#4A6482';
 
 // ==================== 夜间文字配色 ====================
-export const TC_NIGHT_PRIMARY = '#E8E4DC';
-export const TC_NIGHT_ACCENT = '#6BA3E0';
-export const TC_NIGHT_SECONDARY = '#C8C3BA';
-export const TC_NIGHT_TERTIARY = '#A8A39B';
-export const TC_NIGHT_MUTED = '#88847C';
-export const TC_NIGHT_TEMP = '#E8E4DC';
-export const TC_NIGHT_TEMP_UNIT = '#6BA3E0';
-export const TC_NIGHT_HILO = '#A8A39B';
+export const TC_NIGHT_PRIMARY = '#F2EFE6';
+export const TC_NIGHT_ACCENT = '#7DB3F0';
+export const TC_NIGHT_SECONDARY = '#DCD8CE';
+export const TC_NIGHT_TERTIARY = '#C4C0B6';
+export const TC_NIGHT_MUTED = '#A8A49A';
+export const TC_NIGHT_TEMP = '#F2EFE6';
+export const TC_NIGHT_TEMP_UNIT = '#7DB3F0';
+export const TC_NIGHT_HILO = '#C4C0B6';
 
 // ==================== 函数接口 ====================
 export function cardMain(isNight: boolean): string {
@@ -104,5 +104,6 @@ export function tcHiLo(isNight: boolean): string {
 export const accentBlue = '#3B78C2';
 export const accentBlueLight = '#73A9E8';
 export const accentBlueDark = '#2D5B96';
+
 
 

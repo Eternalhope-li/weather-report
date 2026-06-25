@@ -95,19 +95,19 @@ export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
 export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
   switch (wt) {
     case WeatherType.SUNNY:
-      return [["#0A1429", 0], ["#0E1A33", 0.3], ["#132240", 0.6], ["#1A2C47", 1]];
+      return [["#080A10", 0], ["#0C0E16", 0.3], ["#11141D", 0.6], ["#161A24", 1]];
     case WeatherType.CLOUDY:
-      return [["#0F1A30", 0], ["#14223B", 0.3], ["#182A45", 0.6], ["#20334E", 1]];
+      return [["#0A0C13", 0], ["#0E111A", 0.3], ["#131722", 0.6], ["#181D2A", 1]];
     case WeatherType.OVERCAST:
-      return [["#131E33", 0], ["#17263D", 0.4], ["#1C2E47", 0.7], ["#24364F", 1]];
+      return [["#0B0E15", 0], ["#10141D", 0.4], ["#151A26", 0.7], ["#1B212F", 1]];
     case WeatherType.LIGHT_RAIN:
-      return [["#0B1526", 0], ["#101C30", 0.3], ["#15243B", 0.6], ["#1C2D45", 1]];
+      return [["#070910", 0], ["#0B0E17", 0.3], ["#10141F", 0.6], ["#151A28", 1]];
     case WeatherType.HEAVY_RAIN:
-      return [["#08101E", 0], ["#0C1628", 0.3], ["#111E35", 0.6], ["#182840", 1]];
+      return [["#05070C", 0], ["#080B13", 0.3], ["#0C101B", 0.6], ["#111622", 1]];
     case WeatherType.SNOW:
-      return [["#0E192E", 0], ["#132038", 0.3], ["#182842", 0.6], ["#1F304A", 1]];
+      return [["#090B12", 0], ["#0D1019", 0.3], ["#121622", 0.6], ["#171C2B", 1]];
     case WeatherType.FOG:
-      return [["#162036", 0], ["#1A283E", 0.4], ["#1E3046", 0.7], ["#24384D", 1]];
+      return [["#0C0E15", 0], ["#10141D", 0.4], ["#151A26", 0.7], ["#1A202E", 1]];
     default:
       return [["#0F1A30", 0], ["#14223B", 0.5], ["#20334E", 1]];
   }
@@ -119,4 +119,5 @@ export function bgGradient(isNight: boolean, weatherBg: string): Array<[Resource
   if (isNight) { return nightGradient(wt); }
   return dayGradient(wt);
 }
+
 
