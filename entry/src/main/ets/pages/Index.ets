@@ -1,4 +1,4 @@
-﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
+import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
 import { cardMain, cardSecondary, cardAccent, cardFrost, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, iconNight, splitLineNight, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
 import { RainSnowEffect } from "../components/RainSnowEffect";
@@ -426,9 +426,16 @@ struct Index {
         RainSnowEffect({ particleType: this.rainSnowType, density: 1 })
       }
 
-      // 加载骨架屏（仅首次加载时显示）
-      if (this.loading && this.error.length === 0) {
-        this.skeletonView()
+      // 首次加载时显示简洁加载页（天气数据未返回前）
+      if (this.loading && this.error.length === 0 && this.temp === "--") {
+        Column() {
+          Blank().layoutWeight(1)
+          Column() {
+            LoadingProgress().width(40).height(40).color("rgba(255,255,255,0.7)")
+            Text("正在获取天气数据...").fontSize(15).fontColor("rgba(255,255,255,0.45)").margin({ top: 20 }).letterSpacing(3)
+          }
+          Blank().layoutWeight(1)
+        }.width("100%")
       }
 
       // 主内容区域（可纵向滚动 + 下拉刷新；弹窗打开时隐藏以隔离渲染）
@@ -693,52 +700,126 @@ struct Index {
       .margin({ top: 12 })
   }
 
-  /** 加载骨架屏 */
+  /** 加载骨架屏 — 占位UI，加载完成后消失 */
   @Builder skeletonView() {
     Column() {
-      // 顶部骨架
+      // ---------- 顶栏骨架 ----------
       Row() {
-        Column().width(80).height(22).borderRadius(11)
-          .backgroundColor("rgba(255,255,255,0.10)")
+        Column().width(80).height(24).borderRadius(12)
+          .backgroundColor("rgba(255,255,255,0.08)")
         Blank()
         Row() {
           ForEach([1, 2, 3, 4, 5], (): void => {
-            Column().width(24).height(24).borderRadius(12)
-              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ left: 10 })
+            Column().width(22).height(22).borderRadius(11)
+              .backgroundColor("rgba(255,255,255,0.08)").margin({ left: 10 })
           })
         }
       }.width("100%").padding({ top: 36, bottom: 16, left: 8, right: 8 })
 
-      // 主卡片骨架
+      // ---------- 主卡片骨架 ----------
       Column() {
-        Column().width(72).height(72).borderRadius(36)
-          .backgroundColor("rgba(255,255,255,0.10)").margin({ top: 30 })
-        Column().width(140).height(56).borderRadius(28)
-          .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 12 })
-        Column().width(100).height(18).borderRadius(9)
-          .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 8 })
-      }.width("100%").alignItems(HorizontalAlign.Center)
+        LoadingProgress()
+          .width(48).height(48)
+          .color("rgba(170,200,255,0.85)")
+          .margin({ top: 30 })
+        Column().width(80).height(18).borderRadius(9)
+          .backgroundColor("rgba(255,255,255,0.06)").margin({ top: 14 })
+        Text("--℃")
+          .fontSize(72).fontWeight(FontWeight.Bold)
+          .fontColor("#FFFFFF")
+          .lineHeight(80).margin({ top: 8 })
+        Text("体感温度 --℃")
+          .fontSize(14).fontColor("rgba(220,235,255,0.82)")
+          .margin({ top: 6 })
+      }
+      .width("100%").padding(30).alignItems(HorizontalAlign.Center)
+      .backgroundColor("rgba(28,42,75,0.42)").backdropBlur(8)
+      .border({ width: 1, color: "rgba(145,175,255,0.18)" }).borderRadius(32)
 
-      // 详情骨架
+      // ---------- 湿度/风力/UV 三栏骨架 ----------
       Row() {
-        ForEach([1, 2], (): void => {
-          Column() {
-            Column().width(24).height(24).borderRadius(12)
-              .backgroundColor(cardFrost(this.isDark || this.isNight))
-            Column().width(40).height(10).borderRadius(5)
-              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 8 })
-            Column().width(56).height(20).borderRadius(10)
-              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 6 })
-          }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+        Column() {
+          Text("💧").fontSize(22)
+          Text("湿度").fontSize(12).fontColor("rgba(220,235,255,0.82)").margin({ top: 6 })
+          Text("--%").fontSize(20).fontWeight(FontWeight.Bold)
+            .fontColor("#FFFFFF").margin({ top: 4 })
+        }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+
+        Column().width(0.5).height(40).backgroundColor("rgba(130,170,255,0.22)")
+
+        Column() {
+          Text("🌬️").fontSize(22)
+          Text("风力").fontSize(12).fontColor("rgba(220,235,255,0.82)").margin({ top: 6 })
+          Text("--级").fontSize(20).fontWeight(FontWeight.Bold)
+            .fontColor("#FFFFFF").margin({ top: 4 })
+          Text("--").fontSize(12).fontColor("rgba(220,235,255,0.82)")
+        }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+
+        Column().width(0.5).height(40).backgroundColor("rgba(130,170,255,0.22)")
+
+        Column() {
+          Text("☀️").fontSize(22)
+          Text("UV").fontSize(12).fontColor("rgba(220,235,255,0.82)").margin({ top: 6 })
+          Text("--").fontSize(20).fontWeight(FontWeight.Bold)
+            .fontColor("#FFFFFF").margin({ top: 4 })
+        }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+      }
+      .width("100%").padding(20).margin({ top: 16 })
+      .backgroundColor("rgba(28,42,75,0.42)").backdropBlur(8)
+      .border({ width: 1, color: "rgba(145,175,255,0.18)" }).borderRadius(24)
+
+      // ---------- 逐小时预报骨架 ----------
+      Column() {
+        Text("⏰ 逐小时预报")
+          .fontSize(14).fontColor("rgba(220,235,255,0.82)").letterSpacing(2)
+          .width("100%").margin({ bottom: 12 })
+        Row() {
+          ForEach([1, 2, 3, 4, 5], (): void => {
+            Column() {
+              Column().width(36).height(10).borderRadius(5)
+                .backgroundColor("rgba(255,255,255,0.06)").margin({ bottom: 10 })
+              Column().width(24).height(24).borderRadius(12)
+                .backgroundColor("rgba(255,255,255,0.06)").margin({ bottom: 6 })
+              Column().width(32).height(16).borderRadius(8)
+                .backgroundColor("rgba(255,255,255,0.06)")
+            }.width(64).padding({ top: 14, bottom: 12 }).alignItems(HorizontalAlign.Center)
+              .backgroundColor("rgba(28,42,75,0.42)").backdropBlur(8).borderRadius(22)
+              .border({ width: 1, color: "rgba(145,175,255,0.12)" }).margin({ right: 8 })
+          })
+        }.width("100%")
+      }
+      .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
+      .backgroundColor("rgba(28,42,75,0.42)").backdropBlur(8)
+      .border({ width: 1, color: "rgba(145,175,255,0.18)" })
+
+      // ---------- 近三日预报骨架 ----------
+      Column() {
+        Text("📅 近三日预报")
+          .fontSize(14).fontColor("rgba(220,235,255,0.82)").margin({ bottom: 12 }).width("100%").letterSpacing(2)
+        ForEach([1, 2, 3], (): void => {
+          Row() {
+            Column().width(36).height(16).borderRadius(8)
+              .backgroundColor("rgba(255,255,255,0.06)")
+            Column().width(22).height(22).borderRadius(11)
+              .backgroundColor("rgba(255,255,255,0.06)").margin({ left: 6 })
+            Column().width(40).height(14).borderRadius(7)
+              .backgroundColor("rgba(255,255,255,0.06)").margin({ left: 6 })
+            Blank()
+            Column().width(24).height(14).borderRadius(7)
+              .backgroundColor("rgba(255,255,255,0.06)").margin({ right: 8 })
+            Column().width(60).height(4).borderRadius(2)
+              .backgroundColor("rgba(255,255,255,0.06)").margin({ right: 8 })
+            Column().width(28).height(14).borderRadius(7)
+              .backgroundColor("rgba(255,255,255,0.06)")
+          }.width("100%").padding({ top: 10, bottom: 10 }).borderRadius(16)
         })
       }
-      .width("100%").padding(20).borderRadius(28)
-      .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 16 })
-      .shadow({ radius: 6, color: "rgba(64,80,110,0.05)", offsetY: 1 })
+      .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
+      .backgroundColor("rgba(28,42,75,0.42)").backdropBlur(8)
+      .border({ width: 1, color: "rgba(145,175,255,0.18)" })
     }
     .width("100%").padding({ left: 20, right: 20 })
   }
-
   /** 错误提示条 */
   @Builder errorBanner() {
     Column() {
@@ -1029,6 +1110,7 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
 
 
 

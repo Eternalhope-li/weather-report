@@ -46,11 +46,6 @@ struct Splash {
           ]
         })
 
-      // 装饰光晕（左上暖色）
-      Column().width(160).height(160).borderRadius(80)
-        .backgroundColor("rgba(90,150,240,0.04)")
-        .position({ x: -30, y: -30 }).blur(40)
-
       // 装饰光晕（右下冷色）
       Column().width(200).height(200).borderRadius(100)
         .backgroundColor("rgba(60,120,200,0.03)")
