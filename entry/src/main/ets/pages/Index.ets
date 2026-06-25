@@ -76,6 +76,7 @@ struct Index {
   private refreshTimer: number = -1;
   private requestSeq: number = 0;
   private citySwitchPending: boolean = false;
+  @State isRefreshing: boolean = false;
 
   // ==================== 生命周期 ====================
   aboutToAppear(): void {
@@ -293,8 +294,9 @@ struct Index {
 
   /** 优先展示本地缓存的天气数据 */
   showCachedFirst(city: string): void {
+    let seq: number = this.requestSeq;
     prefManager.getWeatherCache(city).then((cached: string | null): void => {
-      if (cached !== null) {
+      if (cached !== null && seq === this.requestSeq) {
         try {
           let data: WeatherData = JSON.parse(cached) as WeatherData;
           if (data.current.temp !== "--") {
@@ -377,9 +379,10 @@ struct Index {
         this.skeletonView()
       }
 
-      // 主内容区域（可纵向滚动）
-      Scroll() {
-        Column() {
+      // 主内容区域（可纵向滚动 + 下拉刷新）
+      Refresh({ refreshing: $$this.isRefreshing }) {
+        Scroll() {
+          Column() {
           // 顶部导航栏：城市名 + 功能按钮
           this.topBar()
 
@@ -417,6 +420,15 @@ struct Index {
           Blank().height(30)
         }.width("100%").padding({ left: 20, right: 20 })
       }.scrollBar(BarState.Off).width("100%").edgeEffect(EdgeEffect.Spring)
+      }
+      .onRefreshing((): void => {
+        this.isRefreshing = true;
+        this.loadW(this.city).then((): void => {
+          this.isRefreshing = false;
+        }).catch((): void => {
+          this.isRefreshing = false;
+        });
+      })
 
       // 搜索面板（点击🔍展开）
       if (this.showSearch) {
