@@ -90,28 +90,11 @@ export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
 }
 
 // ============================================================
-//  夜间渐变
+//  夜间渐变（纯黑→深灰，可读性优先）
 // ============================================================
 export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
-  // 用户指定：深空黑→暗蓝渐变
-  switch (wt) {
-    case WeatherType.SUNNY:
-      return [["#070D20", 0], ["#0E1630", 0.35], ["#121C36", 0.7], ["#162242", 1]];
-    case WeatherType.CLOUDY:
-      return [["#070C1E", 0], ["#0E142C", 0.35], ["#121A34", 0.7], ["#162040", 1]];
-    case WeatherType.OVERCAST:
-      return [["#080C1E", 0], ["#0E142C", 0.4], ["#121A34", 0.7], ["#161E3E", 1]];
-    case WeatherType.LIGHT_RAIN:
-      return [["#060A18", 0], ["#0A1026", 0.35], ["#0E162E", 0.7], ["#121C36", 1]];
-    case WeatherType.HEAVY_RAIN:
-      return [["#040812", 0], ["#080C1E", 0.35], ["#0C1028", 0.7], ["#101630", 1]];
-    case WeatherType.SNOW:
-      return [["#080C22", 0], ["#0E1634", 0.35], ["#142044", 0.7], ["#18284A", 1]];
-    case WeatherType.FOG:
-      return [["#080E22", 0], ["#0E1634", 0.4], ["#141E42", 0.7], ["#182448", 1]];
-    default:
-      return [["#070D20", 0], ["#0E1630", 0.5], ["#121C36", 1]];
-  }
+  // 统一纯黑基底，无蓝色调，保证文字最高对比度
+  return [["#070D20", 0], ["#0E1630", 0.35], ["#121C36", 0.7], ["#162242", 1]];
 }
 
 // ---- 兼容函数别名 ----

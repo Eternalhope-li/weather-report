@@ -74,7 +74,7 @@ struct Settings {
                 .onClick((): void => { this.tempUnit = "F"; prefManager.saveTempUnit("F"); })
             }.width("100%").height(56).padding({ left: 20, right: 20 })
               .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
-              .backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -108,7 +108,7 @@ struct Settings {
               }.width("100%")
             }.width("100%").padding(20)
               .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
-              .backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -125,7 +125,7 @@ struct Settings {
                 })
             }.width("100%").height(56).padding({ left: 20, right: 20 })
               .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
-              .backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -137,7 +137,7 @@ struct Settings {
               Text("v1.0").fontSize(14).fontColor(tcTertiary(this.isDark))
             }.width("100%").height(56).padding({ left: 20, right: 20 })
               .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
-              .backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -169,7 +169,7 @@ struct Settings {
                 })
             }.width("100%").height(56).padding({ left: 20, right: 20 })
               .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
-              .backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
           }.width("100%")
         }.scrollBar(BarState.Off).width("100%").layoutWeight(1)
@@ -186,4 +186,5 @@ struct Settings {
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
 

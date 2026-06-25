@@ -114,7 +114,7 @@ struct CityManage {
           TextInput({ placeholder: "输入城市名搜索添加" })
             .defaultFocus(true)
             .height(48).layoutWeight(1)
-            .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
+            .backgroundColor(cardMain(this.isDark)).backdropBlur(4)
             .border({ width: 0.5, color: cardBorderSub(this.isDark) })
             .fontColor(tcPrimary(this.isDark)).placeholderColor(tcTertiary(this.isDark))
             .borderRadius(16).padding({ left: 16 })
@@ -178,7 +178,7 @@ struct CityManage {
         .onClick((): void => { this.removeCity(city); })
     }.width("100%").padding(14).margin({ top: 6 })
       .backgroundColor(isSelected ? "rgba(59,120,194,0.18)" : cardSecondary(this.isDark))
-      .backdropBlur(12)
+      .backdropBlur(4)
       .border({
         width: isSelected ? 0.8 : 0.5,
         color: isSelected ? "rgba(59,120,194,0.5)" : cardBorderSub(this.isDark)
@@ -194,6 +194,7 @@ struct CityManage {
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
 
 
 

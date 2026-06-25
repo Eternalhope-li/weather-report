@@ -416,7 +416,7 @@ struct Index {
               .borderRadius(s.size / 2)
               .position({ x: s.x, y: s.y })
               .opacity(s.opacity)
-              .shadow({ radius: s.size, color: tcTertiary(this.isDark) })
+              .shadow({ radius: s.size, color: tcTertiary(this.isDark || this.isNight) })
           }, (s: StarPos): string => s.x + s.y)
         }.width('100%').height('100%')
       }
@@ -454,7 +454,7 @@ struct Index {
 
             // 逐小时预报（横向滚动）
             if (this.cloudCover !== "--") {
-              Text("☁️ 云量 " + this.cloudCover + "%  ·  气压 " + this.pressure + "hPa").fontSize(12).fontColor(tcSecondary(this.isDark)).width("100%").textAlign(TextAlign.Center).margin({ top: 2, bottom: 2 })
+              Text("☁️ 云量 " + this.cloudCover + "%  ·  气压 " + this.pressure + "hPa").fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight)).width("100%").textAlign(TextAlign.Center).margin({ top: 2, bottom: 2 })
             }
             if (this.hourly.length > 0 && this.error.length === 0) {
               this.hourlyForecast()
@@ -507,8 +507,8 @@ struct Index {
     Row() {
       // 城市名 + 展开箭头
       Row() {
-        Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
-        Text("  ›").fontSize(20).fontColor(tcTertiary(this.isDark))
+        Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark || this.isNight))
+        Text("  ›").fontSize(20).fontColor(tcTertiary(this.isDark || this.isNight))
       }.onClick((): void => {
         this.getUIContext().getRouter().pushUrl({ url: "pages/CityManage" });
       })
@@ -520,7 +520,7 @@ struct Index {
       Text("🔍").fontSize(18).margin({ left: 10 })
         .onClick((): void => { this.showSearch = !this.showSearch; })
       Text(!this.isFav ? "☆" : "★").fontSize(20).margin({ left: 10 })
-        .fontColor(this.isFav ? "#FFD700" : tcSecondary(this.isDark))
+        .fontColor(this.isFav ? "#FFD700" : tcSecondary(this.isDark || this.isNight))
         .onClick((): void => { this.toggleFav(); })
       Text("⚙️").fontSize(18).margin({ left: 10 })
         .onClick((): void => {
@@ -538,22 +538,22 @@ struct Index {
       // 天气图标
       // 天气图标（夜间替换为柔和月光）
  
-      Text(this.isDark && this.weatherIcon === "\u2600\uFE0F" ? "\uD83C\uDF19" : this.weatherIcon).fontSize(72)
+      Text((this.isDark || this.isNight) && this.weatherIcon === "\u2600\uFE0F" ? "\uD83C\uDF19" : this.weatherIcon).fontSize(72)
       // 天气描述
       Text(this.weatherDesc).fontSize(20).fontWeight(FontWeight.Medium)
-        .fontColor(tcSecondary(this.isDark)).margin({ top: 8 })
+        .fontColor(tcSecondary(this.isDark || this.isNight)).margin({ top: 8 })
       // 当前温度
       Text(convertTempStr(this.temp, this.tempUnit) + tempUnitLabel(this.tempUnit))
-        .fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+        .fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark || this.isNight))
         .lineHeight(80).margin({ top: 4 })
       // 体感温度
       Text("体感温度 "
-        + convertTempStr(this.feelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(14).fontColor(tcSecondary(this.isDark)).margin({ top: 4 })
+        + convertTempStr(this.feelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(14).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ top: 4 })
     }
     .width("100%").padding(30).alignItems(HorizontalAlign.Center)
-    .backgroundColor(cardMain(this.isDark)).backdropBlur(16)
-    .border({ width: 0.5, color: cardBorder(this.isDark) }).borderRadius(32)
-    .shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 }).shadow(this.isDark ? { radius: 12, color: "rgba(255,240,200,0.15)", offsetY: 0 } : { radius: 0 })
+    .backgroundColor(cardMain(this.isDark || this.isNight)).backdropBlur(6)
+    .border({ width: 0.5, color: cardBorder(this.isDark || this.isNight) }).borderRadius(32)
+    .shadow({ radius: 10, color: cardShadowColor(this.isDark || this.isNight), offsetY: 3 }).shadow((this.isDark || this.isNight) ? { radius: 12, color: "rgba(255,240,200,0.15)", offsetY: 0 } : { radius: 0 })
   }
 
   /** 湿度 + 风力详细卡片 */
@@ -562,48 +562,48 @@ struct Index {
       // 湿度
       Column() {
         Text("💧").fontSize(22)
-        Text("湿度").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
+        Text("湿度").fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ top: 6 })
         Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold)
-          .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
+          .fontColor(tcPrimary(this.isDark || this.isNight)).margin({ top: 4 })
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
       // 分隔
-      Column().width(0.5).height(40).backgroundColor(this.isDark ? splitLineNight : cardBorderSub(this.isDark))
+      Column().width(0.5).height(40).backgroundColor((this.isDark || this.isNight) ? splitLineNight : cardBorderSub(this.isDark || this.isNight))
 
       // 风力
       Column() {
         Text("🌬️").fontSize(22)
-        Text("风力").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
+        Text("风力").fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ top: 6 })
         Text((this.windScale.length > 0 ? this.windScale + "级" : this.windSpeed))
-          .fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
-        Text(this.windDir).fontSize(12).fontColor(tcSecondary(this.isDark))
+          .fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark || this.isNight)).margin({ top: 4 })
+        Text(this.windDir).fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight))
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
       // 分隔
-      Column().width(0.5).height(40).backgroundColor(this.isDark ? splitLineNight : cardBorderSub(this.isDark))
+      Column().width(0.5).height(40).backgroundColor((this.isDark || this.isNight) ? splitLineNight : cardBorderSub(this.isDark || this.isNight))
 
       // UV / 空气质量
       Column() {
         Text("☀️").fontSize(22)
-        Text("UV").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
+        Text("UV").fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ top: 6 })
         Text(this.uvIndex !== "--" ? this.uvIndex : "-").fontSize(20).fontWeight(FontWeight.Bold)
-          .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
+          .fontColor(tcPrimary(this.isDark || this.isNight)).margin({ top: 4 })
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
     }
     .width("100%").padding(20).margin({ top: 16 })
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
-    .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
-    .shadow({ radius: 4, color: cardShadowColor(this.isDark), offsetY: 1 })
+    .backgroundColor(cardSecondary(this.isDark || this.isNight)).backdropBlur(4)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark || this.isNight) }).borderRadius(24)
+    .shadow({ radius: 4, color: cardShadowColor(this.isDark || this.isNight), offsetY: 1 })
   }
 
   /** 逐小时预报 - 横向滚动列表 */
   @Builder hourlyForecast() {
     Column() {
       Row() {
-        Text("⏰ 逐小时预报").fontSize(14).fontColor(tcSecondary(this.isDark)).letterSpacing(2)
+        Text("⏰ 逐小时预报").fontSize(14).fontColor(tcSecondary(this.isDark || this.isNight)).letterSpacing(2)
         Blank()
         if (this.lastUpdated.length > 0) {
-          Text(this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark))
+          Text(this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark || this.isNight))
         }
       }.width("100%").margin({ bottom: 12 })
 
@@ -611,17 +611,17 @@ struct Index {
         ForEach(this.hourly, (h: HourlyForecast): void => {
           ListItem() {
             Column() {
-              Text(timeLabel(h.time)).fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ bottom: 6 })
+              Text(timeLabel(h.time)).fontSize(12).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ bottom: 6 })
               Text(String(h.weatherIcon)).fontSize(22).margin({ bottom: 4 })
               Text(convertTempStr(h.temp, this.tempUnit) + "°")
-                .fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+                .fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark || this.isNight))
               if (h.precipProb !== "--" && h.precipProb !== "") {
                 Text(h.precipProb + "%").fontSize(10).fontColor(accentBlue).margin({ top: 4 })
               }
             }
             .width(72).padding({ top: 14, bottom: 12 }).borderRadius(22)
-            .backgroundColor(cardAccent(this.isDark)).backdropBlur(12)
-            .border({ width: 0.5, color: cardBorderSub(this.isDark) })
+            .backgroundColor(cardAccent(this.isDark || this.isNight)).backdropBlur(4)
+            .border({ width: 0.5, color: cardBorderSub(this.isDark || this.isNight) })
             .onClick((): void => {
               this.popTime = h.time; this.popTemp = h.temp; this.popFeelsLike = h.feelsLike;
               this.popHumidity = h.humidity; this.popWindDir = h.windDir;
@@ -638,34 +638,34 @@ struct Index {
       .edgeEffect(EdgeEffect.Spring).scrollBar(BarState.Off)
     }
     .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
-    .border({ width: 0.5, color: cardBorderSub(this.isDark) })
-    .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
+    .backgroundColor(cardSecondary(this.isDark || this.isNight)).backdropBlur(4)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark || this.isNight) })
+    .shadow({ radius: 6, color: cardShadowColor(this.isDark || this.isNight), offsetY: 2 })
   }
 
   /** 7天预报 */
   @Builder dailyForecast() {
     Column() {
-      Text("📅 近三日预报").fontSize(14).fontColor(tcSecondary(this.isDark)).margin({ bottom: 12 }).width("100%").letterSpacing(2)
+      Text("📅 近三日预报").fontSize(14).fontColor(tcSecondary(this.isDark || this.isNight)).margin({ bottom: 12 }).width("100%").letterSpacing(2)
 
       ForEach(this.daily, (d: DailyForecast): void => {
         Row() {
-          Text(d.dayOfWeek).fontSize(15).fontColor(tcPrimary(this.isDark)).width(44)
+          Text(d.dayOfWeek).fontSize(15).fontColor(tcPrimary(this.isDark || this.isNight)).width(44)
           Text(d.weatherIcon).fontSize(20).margin({ left: 6 }).width(28).textAlign(TextAlign.Center)
-          Text(d.weatherDesc).fontSize(14).fontColor(tcSecondary(this.isDark))
+          Text(d.weatherDesc).fontSize(14).fontColor(tcSecondary(this.isDark || this.isNight))
             .width(50).textAlign(TextAlign.Center).margin({ left: 4 })
           Blank()
           Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14)
-            .fontColor(tcSecondary(this.isDark)).margin({ right: 8 })
+            .fontColor(tcSecondary(this.isDark || this.isNight)).margin({ right: 8 })
           // 温度条
           Row() {
             Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4)
               .borderRadius(2).backgroundColor("#7BA4FD")
               .margin({ left: this.barOffset(d.minTemp) })
-          }.width(80).height(4).backgroundColor(cardFrost(this.isDark)).borderRadius(2).margin({ right: 8 })
+          }.width(80).height(4).backgroundColor(cardFrost(this.isDark || this.isNight)).borderRadius(2).margin({ right: 8 })
           Text(convertTempStr(d.maxTemp, this.tempUnit) + "°").fontSize(14)
-            .fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width(36).textAlign(TextAlign.End)
-          Text("›").fontSize(18).fontColor(tcMuted(this.isDark)).margin({ left: 4 })
+            .fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark || this.isNight)).width(36).textAlign(TextAlign.End)
+          Text("›").fontSize(18).fontColor(tcMuted(this.isDark || this.isNight)).margin({ left: 4 })
         }
         .width("100%").padding({ top: 10, bottom: 10 }).borderRadius(16)
         .onClick((): void => {
@@ -681,15 +681,15 @@ struct Index {
       }, (d: DailyForecast): string => d.date)
     }
     .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
-    .border({ width: 0.5, color: cardBorderSub(this.isDark) })
-    .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
+    .backgroundColor(cardSecondary(this.isDark || this.isNight)).backdropBlur(4)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark || this.isNight) })
+    .shadow({ radius: 6, color: cardShadowColor(this.isDark || this.isNight), offsetY: 2 })
   }
 
   /** 更新时间底部 */
   @Builder updateFooter() {
     Text("最后更新 " + this.lastUpdated)
-      .fontSize(12).fontColor(tcMuted(this.isDark)).width("100%").textAlign(TextAlign.Center)
+      .fontSize(12).fontColor(tcMuted(this.isDark || this.isNight)).width("100%").textAlign(TextAlign.Center)
       .margin({ top: 12 })
   }
 
@@ -704,7 +704,7 @@ struct Index {
         Row() {
           ForEach([1, 2, 3, 4, 5], (): void => {
             Column().width(24).height(24).borderRadius(12)
-              .backgroundColor(cardFrost(this.isDark)).margin({ left: 10 })
+              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ left: 10 })
           })
         }
       }.width("100%").padding({ top: 36, bottom: 16, left: 8, right: 8 })
@@ -714,9 +714,9 @@ struct Index {
         Column().width(72).height(72).borderRadius(36)
           .backgroundColor("rgba(255,255,255,0.10)").margin({ top: 30 })
         Column().width(140).height(56).borderRadius(28)
-          .backgroundColor(cardFrost(this.isDark)).margin({ top: 12 })
+          .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 12 })
         Column().width(100).height(18).borderRadius(9)
-          .backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
+          .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 8 })
       }.width("100%").alignItems(HorizontalAlign.Center)
 
       // 详情骨架
@@ -724,16 +724,16 @@ struct Index {
         ForEach([1, 2], (): void => {
           Column() {
             Column().width(24).height(24).borderRadius(12)
-              .backgroundColor(cardFrost(this.isDark))
+              .backgroundColor(cardFrost(this.isDark || this.isNight))
             Column().width(40).height(10).borderRadius(5)
-              .backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
+              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 8 })
             Column().width(56).height(20).borderRadius(10)
-              .backgroundColor(cardFrost(this.isDark)).margin({ top: 6 })
+              .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 6 })
           }.alignItems(HorizontalAlign.Center).layoutWeight(1)
         })
       }
       .width("100%").padding(20).borderRadius(28)
-      .backgroundColor(cardFrost(this.isDark)).margin({ top: 16 })
+      .backgroundColor(cardFrost(this.isDark || this.isNight)).margin({ top: 16 })
       .shadow({ radius: 6, color: "rgba(64,80,110,0.05)", offsetY: 1 })
     }
     .width("100%").padding({ left: 20, right: 20 })
@@ -746,12 +746,12 @@ struct Index {
         .margin({ top: 20, bottom: 10 }).width("100%")
       Button("🔄 返回")
         .fontSize(14).height(40).borderRadius(20)
-        .backgroundColor(cardMain(this.isDark)).fontColor(tcPrimary(this.isDark))
+        .backgroundColor(cardMain(this.isDark || this.isNight)).fontColor(tcPrimary(this.isDark || this.isNight))
         .onClick((): void => { this.loadW(this.city); })
     }
     .width("100%").padding(20).margin({ top: 30 })
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
-    .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
+    .backgroundColor(cardSecondary(this.isDark || this.isNight)).backdropBlur(4)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark || this.isNight) }).borderRadius(24)
     .alignItems(HorizontalAlign.Center)
   }
 
@@ -761,9 +761,9 @@ struct Index {
       Row() {
         TextInput({ placeholder: $r('app.string.search_city_hint') })
           .height(44).layoutWeight(1).borderRadius(22)
-          .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
-          .padding({ left: 16 }).fontColor(tcPrimary(this.isDark))
-          .placeholderColor(tcTertiary(this.isDark))
+          .backgroundColor(cardMain(this.isDark || this.isNight)).backdropBlur(4)
+          .padding({ left: 16 }).fontColor(tcPrimary(this.isDark || this.isNight))
+          .placeholderColor(tcTertiary(this.isDark || this.isNight))
           .onChange((val: string): void => { this.searchText = val; })
           .onSubmit((): void => {
             let q: string = cleanCityName(this.searchText.trim());
@@ -772,16 +772,16 @@ struct Index {
               this.loadW(q);
             }
           })
-        Text(" ✕").fontSize(20).fontColor(tcTertiary(this.isDark)).margin({ left: 12 })
+        Text(" ✕").fontSize(20).fontColor(tcTertiary(this.isDark || this.isNight)).margin({ left: 12 })
           .onClick((): void => { this.showSearch = false; })
       }.width("100%").margin({ top: 28 })
 
       if (this.searchHistory.length > 0) {
-        Text($r('app.string.search_history')).fontSize(13).fontColor(tcTertiary(this.isDark))
+        Text($r('app.string.search_history')).fontSize(13).fontColor(tcTertiary(this.isDark || this.isNight))
           .width("100%").margin({ top: 16, bottom: 8 })
         ForEach(this.searchHistory, (city: string): void => {
           Row() {
-            Text(city).fontSize(15).fontColor(tcSecondary(this.isDark))
+            Text(city).fontSize(15).fontColor(tcSecondary(this.isDark || this.isNight))
               .layoutWeight(1)
               .onClick((): void => {
                 this.searchText = city;
@@ -798,7 +798,7 @@ struct Index {
       }
     }
     .width("100%").height("100%").padding(20)
-    .backgroundColor(cardAccent(this.isDark)).backdropBlur(16)
+    .backgroundColor(cardAccent(this.isDark || this.isNight)).backdropBlur(6)
   }
 
   /** 逐小时详情弹窗 - 全屏置顶隔离渲染 */
@@ -843,7 +843,7 @@ struct Index {
           }.width("100%").alignItems(HorizontalAlign.Center)
             .padding({ top: 24, bottom: 24 })
             .backgroundColor("rgba(255,255,255,0.08)")
-            .backdropBlur(20)
+            .backdropBlur(8)
             .borderRadius(28)
             .border({ width: 0.5, color: "rgba(255,255,255,0.15)" })
 
@@ -874,7 +874,7 @@ struct Index {
           Button("\u8FD4\u56DE")
             .width("100%").height(48).borderRadius(24)
             .backgroundColor("rgba(59,120,194,0.7)")
-            .backdropBlur(12)
+            .backdropBlur(4)
             .fontColor("#FFFFFF").fontSize(16).fontWeight(FontWeight.Medium)
             .onClick((): void => { this.showHourlyPop = false; })
         }
@@ -898,7 +898,7 @@ struct Index {
     .alignItems(HorizontalAlign.Center).layoutWeight(1)
     .padding({ top: 18, bottom: 16 })
     .backgroundColor("rgba(255,255,255,0.12)")
-    .backdropBlur(18)
+    .backdropBlur(6)
     .borderRadius(20)
     .margin({ left: 4, right: 4 })
     .border({ width: 0.5, color: "rgba(255,255,255,0.15)" })
@@ -1029,6 +1029,8 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
+
 
 
 

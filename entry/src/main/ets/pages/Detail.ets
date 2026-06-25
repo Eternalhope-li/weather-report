@@ -80,7 +80,7 @@ struct Detail {
             Text("返回").fontSize(16).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Medium).margin({ left: 6 })
           }
           .padding({ left: 14, right: 18, top: 8, bottom: 8 })
-          .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
+          .backgroundColor(cardMain(this.isDark)).backdropBlur(4)
           .borderRadius(22)
           .border({ width: 0.5, color: cardBorderSub(this.isDark) })
           .onClick((): void => { this.getUIContext().getRouter().back(); })
@@ -117,9 +117,9 @@ struct Detail {
                     Text("夜间最低").fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
                     Text(convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(16).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 2 })
                   }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-                }.width("100%").padding(14).borderRadius(20).margin({ top: 16 }).backgroundColor(cardSecondary(this.isDark)).backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+                }.width("100%").padding(14).borderRadius(20).margin({ top: 16 }).backgroundColor(cardSecondary(this.isDark)).backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
               }
-            }.width("100%").padding(30).borderRadius(32).alignItems(HorizontalAlign.Center).backgroundColor(cardAccent(this.isDark)).backdropBlur(16).border({ width: 0.5, color: cardBorder(this.isDark) })
+            }.width("100%").padding(30).borderRadius(32).alignItems(HorizontalAlign.Center).backgroundColor(cardAccent(this.isDark)).backdropBlur(4).border({ width: 0.5, color: cardBorder(this.isDark) })
 
             Column() {
               Row() {
@@ -127,7 +127,7 @@ struct Detail {
                 Text("天气小贴士").fontSize(15).fontWeight(FontWeight.Bold).fontColor(tcSecondary(this.isDark))
               }.width("100%").margin({ bottom: 10 })
               Text(this.weatherTip()).fontSize(14).fontColor(tcTertiary(this.isDark)).width("100%")
-            }.width("100%").padding(16).borderRadius(24).margin({ top: 16 }).backgroundColor(cardSecondary(this.isDark)).backdropBlur(12).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+            }.width("100%").padding(16).borderRadius(24).margin({ top: 16 }).backgroundColor(cardSecondary(this.isDark)).backdropBlur(4).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(40)
           }.width("100%").padding({ left: 20, right: 20 })
@@ -159,5 +159,6 @@ struct Detail {
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
 
 
