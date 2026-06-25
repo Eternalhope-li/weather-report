@@ -281,6 +281,10 @@ struct Index {
     this.visRange = data.current.visibility;
     this.cloudCover = data.current.cloudCover;
     this.uvIndex = data.current.uvIndex;
+    // QWeather /v7/weather/now API 不返回 uvIndex，从逐日预报取
+    if ((this.uvIndex === "--" || this.uvIndex === "-") && data.daily.length > 0 && data.daily[0].uvIndex !== "--") {
+      this.uvIndex = data.daily[0].uvIndex;
+    }
     this.updateDayNight(data.current.sunrise, data.current.sunset);
     // 更新天气类型用于背景渐变和粒子特效
     let wt: WeatherType = getWeatherType(data.current.weatherDesc);
@@ -915,6 +919,7 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
 
 
 
