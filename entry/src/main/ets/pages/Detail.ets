@@ -75,11 +75,17 @@ struct Detail {
 
       Column() {
         Row() {
-          Text("\u2190 ").fontSize(16).fontColor(tcSecondary(this.isDark))
-            .onClick((): void => { this.getUIContext().getRouter().back(); })
-          Text("返回").fontSize(16).fontColor(tcSecondary(this.isDark))
+          Row() {
+            Text("\u2190").fontSize(20).fontColor(tcPrimary(this.isDark))
+            Text("返回").fontSize(16).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Medium).margin({ left: 6 })
+          }
+          .padding({ left: 14, right: 18, top: 8, bottom: 8 })
+          .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
+          .borderRadius(22)
+          .border({ width: 0.5, color: cardBorderSub(this.isDark) })
+          .onClick((): void => { this.getUIContext().getRouter().back(); })
           Blank()
-        }.width("100%").padding({ top: 28, left: 8 })
+        }.width("100%").padding({ top: 36, left: 8 })
 
         Scroll() {
           Column() {
@@ -153,4 +159,5 @@ struct Detail {
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
 
