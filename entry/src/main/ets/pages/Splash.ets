@@ -62,7 +62,7 @@ struct Splash {
         Text("\u2600\uFE0F")
           .fontSize(80)
           .scale({ x: this.iconScale, y: this.iconScale })
-          .animation({ duration: 900, curve: Curve.ElasticOut })
+          .animation({ duration: 900, curve: Curve.Friction })
 
         // 应用名称
         Text($r("app.string.app_name"))
