@@ -394,7 +394,7 @@ struct Index {
       Column().width("100%").height("100%")
         .linearGradient({
           direction: GradientDirection.Bottom,
-          colors: bgCol(this.isNight, this.weatherDesc)
+          colors: bgCol(this.isNight, this.isDark, this.weatherDesc)
         })
 
       // 夜间星空粒子（晴/多云时显示）
@@ -952,9 +952,9 @@ function timeLabel(t: string): string {
 }
 
 /** 根据日夜和天气返回渐变颜色数组 */
-function bgCol(isNight: boolean, weatherDesc: string): Array<[ResourceColor, number]> {
+function bgCol(isNight: boolean, isDark: boolean, weatherDesc: string): Array<[ResourceColor, number]> {
   let wt: WeatherType = getWeatherType(weatherDesc);
-  if (isNight) { return nightGradient(wt); }
+  if (isNight || isDark) { return nightGradient(wt); }
   return dayGradient(wt);
 }
 
