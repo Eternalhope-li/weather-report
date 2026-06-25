@@ -86,7 +86,7 @@ struct CityManage {
 
         // 搜索输入框（自动聚焦）
         Row() {
-          TextInput({ placeholder: $r('app.string.input_city_hint') }).id('searchInput').focusable(true).id('searchInput').focusable(true)
+          TextInput({ placeholder: $r('app.string.input_city_hint') }).id('searchInput').focusable(true)
             .height(48).layoutWeight(1)
             .backgroundColor(cardMain(this.isDark)).backdropBlur(18)
             .border({ width: 0.5, color: cardBorderSub(this.isDark) })
