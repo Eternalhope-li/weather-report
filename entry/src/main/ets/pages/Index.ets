@@ -1,10 +1,9 @@
-import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
+﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
 import { cardBg, cardBgStrong, cardFrost, cardMain, cardSecondary, cardAccent, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
 import { RainSnowEffect } from "../components/RainSnowEffect";
 import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
-import router from "@ohos.router";
 import searchHistoryManager from "../service/SearchHistoryManager";
 import loadingManager from "../service/LoadingManager";
 import { LoadingComponent } from "../components/LoadingComponent";
@@ -26,6 +25,10 @@ struct Index {
   @State windDir: string = "";
   @State windScale: string = "";
   @State aqi: string = "--";
+  @State uvIndex: string = "--";
+  @State pressure: string = "--";
+  @State visRange: string = "--";
+  @State cloudCover: string = "--";
   @State weatherDesc: string = "加载中";
   @State weatherIcon: string = "☀️";
   @State lastUpdated: string = "";
@@ -86,7 +89,7 @@ struct Index {
       let pendingCity: string = AppStorage.get<string>('globalCurrentCity') ?? '';
       if (pendingCity.length > 0) {
         console.info("[CitySwitch] detect pending city: " + pendingCity);
-        AppStorage.set<string>('globalCurrentCity', '');
+        AppStorage.setOrCreate<string>('globalCurrentCity', '');
         this.citySwitchPending = true;
         this.loadW(pendingCity);
         return;
@@ -94,7 +97,7 @@ struct Index {
     } catch (_e) {}
     // 次选：检查路由参数（备用方案）
     try {
-      let params = router.getParams() as Record<string, Object>;
+      let params = this.getUIContext().getRouter().getParams() as Record<string, Object>;
       if (params !== null && params !== undefined && params.switchCity !== undefined) {
         let switchTo: string = String(params.switchCity);
         if (switchTo.length > 0) {
@@ -103,6 +106,23 @@ struct Index {
           return;
         }
       }
+    } catch (_e) {}
+    // 从设置页返回时重新加载设置（深色模式、温度单位）
+    this.reloadSettingsFromDB();
+  }
+
+  /** 从DB重新加载设置（用于从Settings页返回后同步） */
+  reloadSettingsFromDB(): void {
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      prefManager.init(ctx).then((): void => {
+        prefManager.getSettings().then((s): void => {
+          this.tempUnit = s.tempUnit;
+          this.isDark = s.darkMode === 'true';
+          this.refreshInterval = s.refreshInterval;
+          this.setupAutoRefresh();
+        }).catch((): void => {});
+      }).catch((): void => {});
     } catch (_e) {}
   }
 
@@ -257,6 +277,10 @@ struct Index {
     this.hourly = data.hourly;
     this.sunrise = data.current.sunrise;
     this.sunset = data.current.sunset;
+    this.pressure = data.current.pressure;
+    this.visRange = data.current.visibility;
+    this.cloudCover = data.current.cloudCover;
+    this.uvIndex = data.current.uvIndex;
     this.updateDayNight(data.current.sunrise, data.current.sunset);
     // 更新天气类型用于背景渐变和粒子特效
     let wt: WeatherType = getWeatherType(data.current.weatherDesc);
@@ -368,11 +392,14 @@ struct Index {
             this.detailCards()
 
             // 逐小时预报（横向滚动）
+            if (this.cloudCover !== "--") {
+              Text("☁️ 云量 " + this.cloudCover + "%  ·  气压 " + this.pressure + "hPa").fontSize(12).fontColor(tcSecondary(this.isDark)).width("100%").textAlign(TextAlign.Center).margin({ top: 2, bottom: 2 })
+            }
             if (this.hourly.length > 0 && this.error.length === 0) {
               this.hourlyForecast()
             }
 
-            // 未来天气列表
+            // 7天预报
             if (this.daily.length > 0 && this.error.length === 0) {
               this.dailyForecast()
             }
@@ -447,12 +474,11 @@ struct Index {
         .fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
         .lineHeight(80).margin({ top: 4 })
       // 体感温度
-      Text($r("app.string.feels_like") + " "
-        + convertTempStr(this.feelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
-        .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
+      Text("体感温度 "
+        + convertTempStr(this.feelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(14).fontColor(tcSecondary(this.isDark)).margin({ top: 4 })
     }
     .width("100%").padding(30).alignItems(HorizontalAlign.Center)
-    .backgroundColor(cardMain(this.isDark)).backdropBlur(24)
+    .backgroundColor(cardMain(this.isDark)).backdropBlur(16)
     .border({ width: 0.5, color: cardBorder(this.isDark) }).borderRadius(32)
     .shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 })
   }
@@ -463,7 +489,7 @@ struct Index {
       // 湿度
       Column() {
         Text("💧").fontSize(22)
-        Text($r("app.string.humidity")).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+        Text("湿度").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
         Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
@@ -474,10 +500,10 @@ struct Index {
       // 风力
       Column() {
         Text("🌬️").fontSize(22)
-        Text($r("app.string.wind")).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+        Text("风力").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
         Text((this.windScale.length > 0 ? this.windScale + "级" : this.windSpeed))
           .fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
-        Text(this.windDir).fontSize(12).fontColor(tcTertiary(this.isDark))
+        Text(this.windDir).fontSize(12).fontColor(tcSecondary(this.isDark))
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
       // 分隔
@@ -486,13 +512,13 @@ struct Index {
       // UV / 空气质量
       Column() {
         Text("☀️").fontSize(22)
-        Text("UV").fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
-        Text(this.aqi !== "--" ? this.aqi : "-").fontSize(20).fontWeight(FontWeight.Bold)
+        Text("UV").fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ top: 6 })
+        Text(this.uvIndex !== "--" ? this.uvIndex : "-").fontSize(20).fontWeight(FontWeight.Bold)
           .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
     }
     .width("100%").padding(20).margin({ top: 16 })
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
     .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
     .shadow({ radius: 4, color: cardShadowColor(this.isDark), offsetY: 1 })
   }
@@ -501,7 +527,7 @@ struct Index {
   @Builder hourlyForecast() {
     Column() {
       Row() {
-        Text("⏰ " + $r("app.string.last_update")).fontSize(14).fontColor(tcTertiary(this.isDark)).letterSpacing(2)
+        Text("⏰ 逐小时预报").fontSize(14).fontColor(tcSecondary(this.isDark)).letterSpacing(2)
         Blank()
         if (this.lastUpdated.length > 0) {
           Text(this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark))
@@ -512,7 +538,7 @@ struct Index {
         ForEach(this.hourly, (h: HourlyForecast): void => {
           ListItem() {
             Column() {
-              Text(timeLabel(h.time)).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ bottom: 6 })
+              Text(timeLabel(h.time)).fontSize(12).fontColor(tcSecondary(this.isDark)).margin({ bottom: 6 })
               Text(String(h.weatherIcon)).fontSize(22).margin({ bottom: 4 })
               Text(convertTempStr(h.temp, this.tempUnit) + "°")
                 .fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
@@ -521,7 +547,7 @@ struct Index {
               }
             }
             .width(72).padding({ top: 14, bottom: 12 }).borderRadius(22)
-            .backgroundColor(cardAccent(this.isDark)).backdropBlur(18)
+            .backgroundColor(cardAccent(this.isDark)).backdropBlur(12)
             .border({ width: 0.5, color: cardBorderSub(this.isDark) })
             .onClick((): void => {
               this.popTime = h.time; this.popTemp = h.temp; this.popFeelsLike = h.feelsLike;
@@ -539,16 +565,15 @@ struct Index {
       .edgeEffect(EdgeEffect.Spring).scrollBar(BarState.Off)
     }
     .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
     .border({ width: 0.5, color: cardBorderSub(this.isDark) })
     .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
   }
 
-  /** 未来天气列表 */
+  /** 7天预报 */
   @Builder dailyForecast() {
     Column() {
-      Text("📅 " + $r("app.string.weather_tips_title"))
-        .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ bottom: 12 }).width("100%").letterSpacing(2)
+      Text("📅 近三日预报").fontSize(14).fontColor(tcSecondary(this.isDark)).margin({ bottom: 12 }).width("100%").letterSpacing(2)
 
       ForEach(this.daily, (d: DailyForecast): void => {
         Row() {
@@ -583,14 +608,14 @@ struct Index {
       }, (d: DailyForecast): string => d.date)
     }
     .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
     .border({ width: 0.5, color: cardBorderSub(this.isDark) })
     .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
   }
 
   /** 更新时间底部 */
   @Builder updateFooter() {
-    Text($r("app.string.last_update") + " " + this.lastUpdated)
+    Text("最后更新 " + this.lastUpdated)
       .fontSize(12).fontColor(tcMuted(this.isDark)).width("100%").textAlign(TextAlign.Center)
       .margin({ top: 12 })
   }
@@ -646,13 +671,13 @@ struct Index {
     Column() {
       Text(this.error).fontSize(15).fontColor("#FF6B6B").textAlign(TextAlign.Center)
         .margin({ top: 20, bottom: 10 }).width("100%")
-      Button("🔄 " + $r("app.string.back"))
+      Button("🔄 返回")
         .fontSize(14).height(40).borderRadius(20)
         .backgroundColor(cardMain(this.isDark)).fontColor(tcPrimary(this.isDark))
         .onClick((): void => { this.loadW(this.city); })
     }
     .width("100%").padding(20).margin({ top: 30 })
-    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(12)
     .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
     .alignItems(HorizontalAlign.Center)
   }
@@ -663,7 +688,7 @@ struct Index {
       Row() {
         TextInput({ placeholder: $r('app.string.search_city_hint') })
           .height(44).layoutWeight(1).borderRadius(22)
-          .backgroundColor(cardMain(this.isDark)).backdropBlur(18)
+          .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
           .padding({ left: 16 }).fontColor(tcPrimary(this.isDark))
           .placeholderColor(tcTertiary(this.isDark))
           .onChange((val: string): void => { this.searchText = val; })
@@ -693,7 +718,7 @@ struct Index {
       }
     }
     .width("100%").height("100%").padding(20)
-    .backgroundColor(cardAccent(this.isDark)).backdropBlur(24)
+    .backgroundColor(cardAccent(this.isDark)).backdropBlur(16)
   }
 
   /** 逐小时详情弹窗 */
@@ -722,25 +747,25 @@ struct Index {
 
         // 三列详情
         Row() {
-          this.detailItem("💧", $r("app.string.humidity"), this.popHumidity + "%")
-          this.detailItem("🌬️", $r("app.string.wind"),
+          this.detailItem("💧", "湿度", this.popHumidity + "%")
+          this.detailItem("🌬️", "风力",
             this.popWindScale.length > 0 ? this.popWindScale : this.popWindSpeed)
           this.detailItem("☀️", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-")
         }.width("100%").padding(12).borderRadius(16)
           .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
 
         Row() {
-          this.detailItem("🌧️", $r("app.string.precip_prob"),
+          this.detailItem("🌧️", "降水概率",
             (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%")
-          this.detailItem("💧", $r("app.string.precip_amount"),
+          this.detailItem("💧", "降水量",
             (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm")
-          this.detailItem("🌫️", $r("app.string.pressure"),
+          this.detailItem("🌫️", "气压",
             (this.popPressure !== "--" ? this.popPressure : "-") + "hPa")
         }.width("100%").padding(12).borderRadius(16)
           .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
 
         Row() {
-          this.detailItem("🌡️", $r("app.string.feels_like"),
+          this.detailItem("🌡️", "体感温度",
             convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
         }.width("100%").padding(12).borderRadius(16)
           .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 12 })
@@ -890,3 +915,12 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
+
+
+
+
+
+
+
+

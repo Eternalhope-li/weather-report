@@ -1,5 +1,4 @@
-﻿import router from '@ohos.router';
-
+﻿
 @Entry
 @Component
 struct Splash {
@@ -54,4 +53,5 @@ struct Splash {
       .opacity(0)
   }
 }
+
 

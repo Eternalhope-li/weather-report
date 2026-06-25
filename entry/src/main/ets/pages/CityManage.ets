@@ -1,24 +1,28 @@
-import router from '@ohos.router';
-import prefManager from '../service/PreferenceManager';
-import { cleanCityName } from '../model/TemperatureConverter';
-import { bgGradient, cardMain, cardAccent, cardSecondary, cardBorder, cardBorderSub, tcPrimary, tcSecondary, tcTertiary, tcMuted } from '../model/ThemeManager';
-import searchHistoryManager from '../service/SearchHistoryManager';
-import loadingManager from '../service/LoadingManager';
-import { LoadingComponent } from '../components/LoadingComponent';
+﻿import prefManager from "../service/PreferenceManager";
+import { cleanCityName } from "../model/TemperatureConverter";
+import {
+  bgGradient, cardMain, cardAccent, cardSecondary, cardFrost,
+  cardBorder, cardBorderSub,
+  tcPrimary, tcSecondary, tcTertiary, tcMuted
+} from "../model/ThemeManager";
+import searchHistoryManager from "../service/SearchHistoryManager";
+import loadingManager from "../service/LoadingManager";
+import { LoadingComponent } from "../components/LoadingComponent";
 
 /**
  * CityManage — 城市管理页面
- * 搜索+添加城市，显示搜索历史和已存城市列表
- * 选中城市后通过 AppStorage 通知首页切换
+ * 搜索+添加城市，已存城市列表自动去重
+ * 点击城市通过 AppStorage 通知首页切换
  */
 @Entry
 @Component
 struct CityManage {
   @State cities: string[] = [];
   @State searchHistory: string[] = [];
-  @State newCity: string = '';
+  @State newCity: string = "";
   @State isDark: boolean = false;
-  @State selectedCity: string = '';
+  @State selectedCity: string = "";
+
 
   aboutToAppear(): void {
     this.loadThemeSettings();
@@ -35,7 +39,8 @@ struct CityManage {
     let ctx: Context = this.getUIContext().getHostContext()!;
     prefManager.init(ctx).then((): void => {
       prefManager.getHistory().then((h: string[]): void => {
-        this.cities = h;
+        // 自动去重
+        this.cities = this.deduplicateCities(h);
       }).catch((): void => {});
       prefManager.getLastCity().then((c: string): void => {
         this.selectedCity = c;
@@ -49,13 +54,27 @@ struct CityManage {
     }).catch((): void => {});
   }
 
+  /** 城市数组去重（保留首次出现的顺序） */
+  deduplicateCities(arr: string[]): string[] {
+    let seen: Set<string> = new Set();
+    let result: string[] = [];
+    for (let i: number = 0; i < arr.length; i++) {
+      let city: string = arr[i];
+      if (!seen.has(city)) {
+        seen.add(city);
+        result.push(city);
+      }
+    }
+    return result;
+  }
+
   /** 加载深色模式设置 */
   loadThemeSettings(): void {
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
         prefManager.getSettings().then((s): void => {
-          this.isDark = s.darkMode === 'true';
+          this.isDark = s.darkMode === "true";
         }).catch((): void => {});
       }).catch((): void => {});
     } catch (_e) {}
@@ -66,65 +85,75 @@ struct CityManage {
     let q: string = cleanCityName(city);
     if (q.length === 0) { return; }
     this.selectedCity = q;
-    AppStorage.set<string>('globalCurrentCity', q);
+    AppStorage.setOrCreate<string>("globalCurrentCity", q);
     prefManager.saveLastCity(q);
     this.getUIContext().getRouter().back();
+  }
+
+  /** 添加城市到列表 */
+  addNewCity(cityName: string): void {
+    let q: string = cleanCityName(cityName.trim());
+    if (q.length === 0) { return; }
+    // 去重：如果已存在则直接选中跳转
+    if (this.cities.indexOf(q) >= 0) {
+      this.selectCityAndGo(q);
+      return;
+    }
+    loadingManager.show();
+    prefManager.addToHistory(q).then((h: string[]): void => {
+      this.cities = this.deduplicateCities(h);
+      this.newCity = "";
+      loadingManager.hide();
+    }).catch((): void => { loadingManager.hide(); });
+  }
+
+  /** 删除城市 */
+  removeCity(city: string): void {
+    loadingManager.show();
+    prefManager.removeFromHistory(city).then((h: string[]): void => {
+      this.cities = this.deduplicateCities(h);
+      if (this.selectedCity === city) {
+        this.selectedCity = this.cities.length > 0 ? this.cities[0] : "";
+      }
+      loadingManager.hide();
+    }).catch((): void => { loadingManager.hide(); });
   }
 
   build() {
     Stack() {
       // 天气渐变背景
-      Column().width('100%').height('100%')
+      Column().width("100%").height("100%")
         .linearGradient({
           direction: GradientDirection.Bottom,
-          colors: bgGradient(this.isDark, '')
+          colors: bgGradient(this.isDark, "")
         })
 
       Column() {
         // 顶部标题栏
         Row() {
-          Text('← ').fontSize(22).fontColor('rgba(255,255,255,0.8)')
+          Text("\u2190 ").fontSize(22).fontColor("rgba(255,255,255,0.8)")
             .onClick((): void => { this.getUIContext().getRouter().back(); })
-          Text($r('app.string.city_manage')).fontSize(20).fontWeight(FontWeight.Bold)
+          Text("城市管理").fontSize(20).fontWeight(FontWeight.Bold)
             .fontColor(tcPrimary(this.isDark)).margin({ left: 8 })
           Blank()
-        }.width('100%').padding({ top: 28, bottom: 12, left: 8, right: 8 })
+        }.width("100%").padding({ top: 28, bottom: 12, left: 8, right: 8 })
 
-        // 搜索输入框（用户点击后自动弹出输入法）
+        // 搜索输入框（自动唤起输入法）
         Row() {
-          TextInput({ placeholder: $r('app.string.input_city_hint') })
+          TextInput({ placeholder: "输入城市名搜索添加" })
+            .defaultFocus(true)
             .height(48).layoutWeight(1)
-            .backgroundColor(cardMain(this.isDark)).backdropBlur(18)
+            .backgroundColor(cardMain(this.isDark)).backdropBlur(12)
             .border({ width: 0.5, color: cardBorderSub(this.isDark) })
             .fontColor(tcPrimary(this.isDark)).placeholderColor(tcTertiary(this.isDark))
             .borderRadius(16).padding({ left: 16 })
             .onChange((val: string): void => { this.newCity = val; })
-            .onSubmit((): void => {
-              let q: string = cleanCityName(this.newCity.trim());
-              if (q.length > 0) {
-                loadingManager.show();
-                prefManager.addToHistory(q).then((h: string[]): void => {
-                  this.cities = h;
-                  this.newCity = '';
-                  loadingManager.hide();
-                }).catch((): void => { loadingManager.hide(); });
-              }
-            })
-          Button($r('app.string.add')).height(48).borderRadius(16).margin({ left: 8 })
+            .onSubmit((): void => { this.addNewCity(this.newCity); })
+          Button("添加").height(48).borderRadius(16).margin({ left: 8 })
             .backgroundColor(cardAccent(this.isDark))
             .fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Bold)
-            .onClick((): void => {
-              let q: string = cleanCityName(this.newCity.trim());
-              if (q.length > 0) {
-                loadingManager.show();
-                prefManager.addToHistory(q).then((h: string[]): void => {
-                  this.cities = h;
-                  this.newCity = '';
-                  loadingManager.hide();
-                }).catch((): void => { loadingManager.hide(); });
-              }
-            })
-        }.width('100%').margin({ top: 4 })
+            .onClick((): void => { this.addNewCity(this.newCity); })
+        }.width("100%").margin({ top: 4 })
 
         // 主滚动区域
         Scroll() {
@@ -133,83 +162,89 @@ struct CityManage {
             if (this.cities.length > 0) {
               Column() {
                 Row() {
-                  Text('📍 ' + $r('app.string.search_history')).fontSize(14).fontColor(tcTertiary(this.isDark))
+                  Text("\uD83D\uDCCD 已存城市").fontSize(14).fontColor(tcTertiary(this.isDark))
                   Blank()
-                }.width('100%').margin({ bottom: 8, top: 12 })
+                }.width("100%").margin({ bottom: 8, top: 12 })
 
                 ForEach(this.cities, (city: string): void => {
-                  this.cityCard(city, city === this.selectedCity)
+                  if (typeof city === "string") {
+                    this.cityCard(city, city === this.selectedCity)
+                  }
                 }, (city: string): string => city)
-              }.width('100%')
+              }.width("100%")
             }
 
             // ---- 搜索历史（排除已在 cities 中的） ----
             if (this.searchHistory.length > 0) {
               Column() {
                 Row() {
-                  Text('🕐 ' + $r('app.string.search_history')).fontSize(14).fontColor(tcTertiary(this.isDark))
+                  Text("\uD83D\uDD50 搜索历史").fontSize(14).fontColor(tcTertiary(this.isDark))
                   Blank()
-                }.width('100%').margin({ bottom: 8, top: 16 })
+                }.width("100%").margin({ bottom: 8, top: 16 })
 
                 ForEach(this.searchHistory, (city: string): void => {
                   if (this.cities.indexOf(city) < 0) {
-                    this.cityCard(city, city === this.selectedCity)
+                    if (typeof city === "string") {
+                      this.cityCard(city, city === this.selectedCity)
+                    }
                   }
                 }, (city: string): string => city)
-              }.width('100%')
+              }.width("100%")
             }
 
             // 空状态
             if (this.cities.length === 0 && this.searchHistory.length === 0) {
               Column() {
-                Text('🏔️').fontSize(48).margin({ top: 40 })
-                Text($r('app.string.no_city')).fontSize(16).fontColor(tcTertiary(this.isDark)).margin({ top: 12 })
-              }.width('100%').alignItems(HorizontalAlign.Center).margin({ top: 40 })
+                Text("\uD83C\uDFD4\uFE0F").fontSize(48).margin({ top: 40 })
+                Text("暂无城市数据").fontSize(16).fontColor(tcTertiary(this.isDark)).margin({ top: 12 })
+              }.width("100%").alignItems(HorizontalAlign.Center).margin({ top: 40 })
             }
 
             Blank().height(40)
-          }.width('100%')
-        }.scrollBar(BarState.Off).width('100%').margin({ top: 8 }).edgeEffect(EdgeEffect.Spring)
+          }.width("100%")
+        }.scrollBar(BarState.Off).width("100%").margin({ top: 8 }).edgeEffect(EdgeEffect.Spring)
 
-      }.width('100%').height('100%').padding(20)
+      }.width("100%").height("100%").padding(20)
 
       LoadingComponent()
-    }.width('100%').height('100%')
+    }.width("100%").height("100%")
   }
 
   /** 城市卡片 - 磨砂玻璃样式 */
   @Builder cityCard(city: string, isSelected: boolean) {
     Row() {
-      Text(isSelected ? '⭐' : '📍').fontSize(16).margin({ right: 10 })
+      Text(isSelected ? "\u2B50" : "\uD83D\uDCCD").fontSize(16).margin({ right: 10 })
       Text(city).fontSize(16).fontWeight(isSelected ? FontWeight.Bold : FontWeight.Normal)
-        .fontColor(isSelected ? tcPrimary(this.isDark) : tcSecondary(this.isDark)).layoutWeight(1)
+        .fontColor(isSelected ? "#0F243D" : tcSecondary(this.isDark)).layoutWeight(1)
       if (isSelected) {
-        Text('✔️').fontSize(14).fontColor('#7BA4FD').margin({ right: 8 })
+        Text("\u2714\uFE0F").fontSize(14).fontColor("#3B78C2").margin({ right: 8 })
       }
       // 删除按钮
-      Text('✖').fontSize(15).fontColor('rgba(255,120,120,0.75)')
+      Text("\u2716").fontSize(15).fontColor("rgba(255,120,120,0.75)")
         .padding({ left: 10, right: 6, top: 6, bottom: 6 })
-        .onClick((): void => {
-          loadingManager.show();
-          prefManager.removeFromHistory(city).then((h: string[]): void => {
-            this.cities = h;
-            loadingManager.hide();
-          }).catch((): void => { loadingManager.hide(); });
-        })
-    }.width('100%').padding(14).margin({ top: 6 })
-      .backgroundColor(isSelected ? cardAccent(this.isDark) : cardSecondary(this.isDark))
-      .backdropBlur(18)
-      .border({ width: isSelected ? 0.8 : 0.5, color: isSelected ? 'rgba(123,164,253,0.5)' : cardBorderSub(this.isDark) })
+        .onClick((): void => { this.removeCity(city); })
+    }.width("100%").padding(14).margin({ top: 6 })
+      .backgroundColor(isSelected ? "rgba(59,120,194,0.18)" : cardSecondary(this.isDark))
+      .backdropBlur(12)
+      .border({
+        width: isSelected ? 0.8 : 0.5,
+        color: isSelected ? "rgba(59,120,194,0.5)" : cardBorderSub(this.isDark)
+      })
       .borderRadius(18)
       .onClick((): void => { this.selectCityAndGo(city); })
   }
 
   pageTransition() {
-    // Push: 新页面从右侧滑入, 当前页向左滑出
     PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(1)
     PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(0)
-    // Pop: 返回时当前页向右滑出, 首页从左侧进入
     PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(1)
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
+
+
+
+
+
+

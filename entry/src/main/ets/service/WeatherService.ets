@@ -29,14 +29,14 @@ const JUHE_KEY: string = '133a4b6437c950bc2c7214b30e5c0fcd';
 interface QWeatherNowBody {
   temp?: string; feelsLike?: string; humidity?: string;
   windSpeed?: string; windDir?: string; windScale?: string;
-  uvIndex?: string; visibility?: string; pressure?: string;
+  uvIndex?: string; vis?: string; pressure?: string;
   text?: string; icon?: string; cloud?: string;
 }
 interface QWeatherNowRoot { now?: QWeatherNowBody; }
 interface QWeatherHourItem {
   fxTime?: string; temp?: string; feelsLike?: string; humidity?: string;
   windDir?: string; windScale?: string; windSpeed?: string;
-  precip?: string; pressure?: string; uvIndex?: string;
+  precip?: string; pop?: string; pressure?: string; uvIndex?: string;
   icon?: string; text?: string; isDay?: string;
 }
 interface QWeatherHourRoot { hourly?: QWeatherHourItem[]; }
@@ -74,6 +74,24 @@ interface JuheResult {
 }
 interface JuheRoot { result?: JuheResult; }
 interface JuheDay { date?: string; high?: string; low?: string; weather?: string; weather_icon?: string; }
+// ============================================================
+//  QWeather AQI 空气接口
+// ============================================================
+interface QWeatherAirNow {
+  aqi?: string;
+  primary?: string;
+  pm25?: string;
+  pm10?: string;
+  no2?: string;
+  so2?: string;
+  co?: string;
+  o3?: string;
+  level?: string;
+  category?: string;
+}
+interface QWeatherAirRoot {
+  now?: QWeatherAirNow;
+}
 
 // ============================================================
 //  工具函数
@@ -165,9 +183,15 @@ function qIconEmoji(icon: string): string {
 //  JSON 解析函数（纯点号访问，无方括号）
 // ============================================================
 
-function parseCurrent(head: QWeatherNowRoot): CurrentWeather {
+function parseCurrent(head: QWeatherNowRoot, airRoot?: QWeatherAirRoot): CurrentWeather {
   let now: QWeatherNowBody = head.now ?? {};
-  return {
+  let aqiVal: string = "--";
+  if (airRoot !== undefined) {
+    let airNow: QWeatherAirNow = airRoot.now ?? {};
+    if (airNow.aqi !== undefined && airNow.aqi !== null) {
+      aqiVal = safeStr(airNow.aqi, "--");
+    }
+  }  return {
     temp: safeStr(now.temp, "--"),
     feelsLike: safeStr(now.feelsLike, "--"),
     humidity: safeStr(now.humidity, "--"),
@@ -175,12 +199,12 @@ function parseCurrent(head: QWeatherNowRoot): CurrentWeather {
     windDir: safeStr(now.windDir, ""),
     windScale: safeStr(now.windScale, ""),
     uvIndex: safeStr(now.uvIndex, "--"),
-    visibility: safeStr(now.visibility, "--"),
+    visibility: safeStr(now.vis, "--"),
     pressure: safeStr(now.pressure, "--"),
     weatherDesc: safeStr(now.text, "--"),
     weatherIcon: qIconEmoji(safeStr(now.icon, "")),
     cloudCover: safeStr(now.cloud, "--"),
-    aqi: "--",
+    aqi: aqiVal,
     sunrise: "--",
     sunset: "--"
   };
@@ -198,7 +222,7 @@ function parseHourly(hourlyArr: QWeatherHourItem[]): HourlyForecast[] {
       windDir: safeStr(h.windDir, ""),
       windScale: safeStr(h.windScale, ""),
       windSpeed: safeStr(h.windSpeed, "--"),
-      precipProb: safeStr(h.precip, "--"),
+      precipProb: safeStr(h.pop, "--"),
       precip: safeStr(h.precip, "--"),
       pressure: safeStr(h.pressure, "--"),
       uvIndex: safeStr(h.uvIndex, "--"),
@@ -250,7 +274,20 @@ async function parseQWeather(raw: string, cityName: string): Promise<WeatherData
     let dailyJson: QWeatherDayRoot = JSON.parse(p2) as QWeatherDayRoot;
     let hourlyJson: QWeatherHourRoot = JSON.parse(p3) as QWeatherHourRoot;
 
-    let current: CurrentWeather = parseCurrent(nowJson);
+    let airJson: QWeatherAirRoot | undefined = undefined;
+    try {
+      if (semi3 > 0) {
+        let p4: string = raw.substring(semi3 + 1);
+        if (p4.length > 0) { airJson = JSON.parse(p4) as QWeatherAirRoot; }
+      }
+    } catch (_ae) {}
+    let current: CurrentWeather = parseCurrent(nowJson, airJson);
+        try {
+      if (semi3 > 0) {
+        let p4: string = raw.substring(semi3 + 1);
+        if (p4.length > 0) { airJson = JSON.parse(p4) as QWeatherAirRoot; }
+      }
+    } catch (_ae) {}
     let dailyArr: QWeatherDayItem[] = dailyJson.daily ?? [];
     let hourlyArr: QWeatherHourItem[] = hourlyJson.hourly ?? [];
     let daily: DailyForecast[] = parseDaily(dailyArr);
