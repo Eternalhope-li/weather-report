@@ -4,7 +4,7 @@
 // ============================================================
 import {
   cardMain, cardSub, cardAccent, cardSecondary, cardFrost,
-  cardBg, cardBgStrong, cardShadowColor, cardBorder, cardBorderSub,
+  cardBg, cardBgStrong, cardAux, cardShadowColor, cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo,
   accentBlue, accentBlueLight, accentBlueDark,
   TC_DAY_PRIMARY, TC_DAY_SECONDARY, TC_DAY_TERTIARY, TC_DAY_MUTED,
@@ -15,7 +15,7 @@ import {
 
 export { 
   cardMain, cardSub, cardAccent, cardSecondary, cardFrost,
-  cardBg, cardBgStrong, cardShadowColor, cardBorder, cardBorderSub,
+  cardBg, cardBgStrong, cardAux, cardShadowColor, cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo,
   accentBlue, accentBlueLight, accentBlueDark,
   TC_DAY_PRIMARY, TC_DAY_SECONDARY, TC_DAY_TERTIARY, TC_DAY_MUTED,
@@ -71,21 +71,21 @@ export function particleType(wt: WeatherType): string {
 export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
   switch (wt) {
     case WeatherType.SUNNY:
-      return [["#94C8F8", 0], ["#B0D8FA", 0.3], ["#D0E8FC", 0.6], ["#E6F2FF", 1]];
+      return [["#8AC0F5", 0], ["#A8D4F8", 0.3], ["#C8E4FA", 0.6], ["#E0EFFE", 1]];
     case WeatherType.CLOUDY:
-      return [["#B6D3F2", 0], ["#C8DFF5", 0.3], ["#DCEBF8", 0.6], ["#EDF5FF", 1]];
+      return [["#B0CFEE", 0], ["#C4DBF2", 0.3], ["#D8E8F6", 0.6], ["#EAF2FC", 1]];
     case WeatherType.OVERCAST:
-      return [["#D0E0F5", 0], ["#D8E6F8", 0.4], ["#E2EEFA", 0.7], ["#E8F2FC", 1]];
+      return [["#CCDCF2", 0], ["#D4E2F5", 0.4], ["#E0ECF8", 0.7], ["#E6F0FA", 1]];
     case WeatherType.LIGHT_RAIN:
-      return [["#A0B8D0", 0], ["#B0C8DE", 0.3], ["#C4D8EA", 0.6], ["#D4E1F0", 1]];
+      return [["#9CB4CC", 0], ["#ACC4DA", 0.3], ["#C0D4E6", 0.6], ["#D0DEEE", 1]];
     case WeatherType.HEAVY_RAIN:
-      return [["#8AA8C5", 0], ["#98B8D2", 0.3], ["#AEC8E0", 0.6], ["#C4D8EC", 1]];
+      return [["#86A4C1", 0], ["#94B4CE", 0.3], ["#AAC4DC", 0.6], ["#C0D4E8", 1]];
     case WeatherType.SNOW:
-      return [["#C6D8EB", 0], ["#D8E6F2", 0.3], ["#E8F0F8", 0.6], ["#F2F7FD", 1]];
+      return [["#C2D4E7", 0], ["#D4E2EE", 0.3], ["#E4ECF4", 0.6], ["#EEF4FA", 1]];
     case WeatherType.FOG:
-      return [["#D8E0EC", 0], ["#E0E8F0", 0.4], ["#E8F0F5", 0.7], ["#EEF4FA", 1]];
+      return [["#D4DCE8", 0], ["#DCE4EC", 0.4], ["#E4ECF2", 0.7], ["#EAF0F6", 1]];
     default:
-      return [["#B6D3F2", 0], ["#D0E4F8", 0.5], ["#EDF5FF", 1]];
+      return [["#B0CFEE", 0], ["#CCE0F5", 0.5], ["#EAF2FC", 1]];
   }
 }
 
@@ -93,23 +93,24 @@ export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
 //  夜间渐变
 // ============================================================
 export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
+  // 深色护眼模式：暖调深色背景，与卡片(22,27,34)形成层次
   switch (wt) {
     case WeatherType.SUNNY:
-      return [["#040612", 0], ["#0A1020", 0.3], ["#10182E", 0.6], ["#16203C", 1]];
+      return [["#0B0E14", 0], ["#0F1420", 0.3], ["#141A2A", 0.6], ["#1A2236", 1]];
     case WeatherType.CLOUDY:
-      return [["#060814", 0], ["#0C0E1C", 0.3], ["#121626", 0.6], ["#181E30", 1]];
+      return [["#0C0F16", 0], ["#111624", 0.3], ["#161C2E", 0.6], ["#1C2438", 1]];
     case WeatherType.OVERCAST:
-      return [["#080A16", 0], ["#0E1222", 0.4], ["#141A2E", 0.7], ["#1A2238", 1]];
+      return [["#0E1118", 0], ["#131826", 0.4], ["#181E30", 0.7], ["#1E263C", 1]];
     case WeatherType.LIGHT_RAIN:
-      return [["#050812", 0], ["#0A0E1C", 0.3], ["#0F1426", 0.6], ["#141A30", 1]];
+      return [["#0A0D14", 0], ["#0E131E", 0.3], ["#131828", 0.6], ["#181E32", 1]];
     case WeatherType.HEAVY_RAIN:
-      return [["#03050A", 0], ["#070A14", 0.3], ["#0B0F1E", 0.6], ["#101528", 1]];
+      return [["#080B10", 0], ["#0C101A", 0.3], ["#101522", 0.6], ["#151A2C", 1]];
     case WeatherType.SNOW:
-      return [["#060814", 0], ["#0C0E1C", 0.3], ["#101626", 0.6], ["#161E32", 1]];
+      return [["#0D1018", 0], ["#121724", 0.3], ["#171C2E", 0.6], ["#1D2438", 1]];
     case WeatherType.FOG:
-      return [["#0A0C18", 0], ["#0E1222", 0.4], ["#141A2E", 0.7], ["#1A2236", 1]];
+      return [["#0F121A", 0], ["#141928", 0.4], ["#191E32", 0.7], ["#202840", 1]];
     default:
-      return [["#0F1A30", 0], ["#14223B", 0.5], ["#20334E", 1]];
+      return [["#0C0F16", 0], ["#111624", 0.5], ["#1A2236", 1]];
   }
 }
 
