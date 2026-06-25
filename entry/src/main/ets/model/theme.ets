@@ -19,10 +19,10 @@ export const cardAccentNight = 'rgba(42,46,55,0.4)';
 // ==================== 边框 ====================
 export const borderDay = 'rgba(255,255,255,0.3)';
 export const borderSubDay = 'rgba(255,255,255,0.25)';
-export const borderNight = 'rgba(200,195,185,0.15)';
-export const borderSubNight = 'rgba(200,195,185,0.08)';
+export const borderNight = 'rgba(210,205,195,0.25)';
+export const borderSubNight = 'rgba(210,205,195,0.15)';
 export const shadowDay = 'rgba(100,140,190,0.15)';
-export const shadowNight = 'rgba(0,0,0,0)';
+export const shadowNight = 'rgba(0,0,0,0.35)';
 
 // ==================== 日间文字配色 ====================
 /** 主文字深海军蓝 */
@@ -104,6 +104,7 @@ export function tcHiLo(isNight: boolean): string {
 export const accentBlue = '#3B78C2';
 export const accentBlueLight = '#73A9E8';
 export const accentBlueDark = '#2D5B96';
+
 
 
 

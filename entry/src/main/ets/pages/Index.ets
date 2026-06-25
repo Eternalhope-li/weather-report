@@ -740,7 +740,7 @@ struct Index {
               .fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 2 })
           }.alignItems(HorizontalAlign.Start)
           Blank()
-          Text("✕").fontSize(22).fontColor(tcTertiary(this.isDark)).width(32).height(32)
+          Text("\u2716").fontSize(22).fontColor(tcTertiary(this.isDark)).width(32).height(32)
             .textAlign(TextAlign.Center)
             .onClick((): void => { this.showHourlyPop = false; })
         }.width("100%").margin({ bottom: 16 })
@@ -749,39 +749,32 @@ struct Index {
           .fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
           .width("100%").textAlign(TextAlign.Center).margin({ bottom: 16 })
 
-        // 三列详情
+        // 逐小时独有数据：降水概率 + 降水量 + 气压
         Row() {
-          this.detailItem("💧", "湿度", this.popHumidity + "%")
-          this.detailItem("🌬️", "风力",
-            this.popWindScale.length > 0 ? this.popWindScale : this.popWindSpeed)
-          this.detailItem("☀️", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-")
-        }.width("100%").padding(12).borderRadius(16)
-          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
-
-        Row() {
-          this.detailItem("🌧️", "降水概率",
+          this.detailItem("\uD83C\uDF27\uFE0F", "降水概率",
             (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%")
-          this.detailItem("💧", "降水量",
+          this.detailItem("\uD83D\uDCA7", "降水量",
             (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm")
-          this.detailItem("🌫️", "气压",
+          this.detailItem("\uD83C\uDF2B\uFE0F", "气压",
             (this.popPressure !== "--" ? this.popPressure : "-") + "hPa")
         }.width("100%").padding(12).borderRadius(16)
           .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
 
+        // 小时体感温度
         Row() {
-          this.detailItem("🌡️", "体感温度",
+          this.detailItem("\uD83C\uDF21\uFE0F", "体感温度",
             convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
         }.width("100%").padding(12).borderRadius(16)
           .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 12 })
 
-        Button($r("app.string.close")).width("100%").height(44).borderRadius(22)
+        Button("关闭").width("100%").height(44).borderRadius(22)
           .backgroundColor(cardBg(this.isDark)).fontColor(tcPrimary(this.isDark))
           .fontWeight(FontWeight.Bold)
           .onClick((): void => { this.showHourlyPop = false; })
       }.width("100%").padding(24).borderRadius(32).backgroundColor(cardFrost(this.isDark))
     }
     .width("100%").height("100%").padding(24).justifyContent(FlexAlign.Center)
-    .backgroundColor("rgba(0,0,0,0.5)")
+    .backgroundColor("rgba(0,0,0,0.75)")
     .onClick((): void => { this.showHourlyPop = false; })
   }
 
@@ -919,6 +912,7 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
 
 
 
