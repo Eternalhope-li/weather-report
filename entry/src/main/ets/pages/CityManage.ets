@@ -1,4 +1,5 @@
 ﻿import prefManager from "../service/PreferenceManager";
+import { setPendingCity } from "../model/CitySwitch";
 import { cleanCityName } from "../model/TemperatureConverter";
 import {
   bgGradient, cardMain, cardAccent, cardSecondary, cardFrost,
@@ -85,7 +86,7 @@ struct CityManage {
     let q: string = cleanCityName(city);
     if (q.length === 0) { return; }
     this.selectedCity = q;
-    AppStorage.setOrCreate<string>("globalCurrentCity", q);
+    setPendingCity(q);
     prefManager.saveLastCity(q);
     this.getUIContext().getRouter().back();
   }

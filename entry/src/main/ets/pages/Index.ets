@@ -6,6 +6,7 @@ import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
 import searchHistoryManager from "../service/SearchHistoryManager";
 import loadingManager from "../service/LoadingManager";
+import { getPendingCity, clearPendingCity } from "../model/CitySwitch";
 import { LoadingComponent } from "../components/LoadingComponent";
 
 /**
@@ -87,10 +88,10 @@ struct Index {
   onPageShow(): void {
     // 检查 AppStorage 是否有待切换的城市（来自 CityManage）
     try {
-      let pendingCity: string = AppStorage.get<string>('globalCurrentCity') ?? '';
+      let pendingCity: string = getPendingCity();
       if (pendingCity.length > 0) {
         console.info("[CitySwitch] detect pending city: " + pendingCity);
-        AppStorage.setOrCreate<string>('globalCurrentCity', '');
+        clearPendingCity();
         this.citySwitchPending = true;
         this.loadW(pendingCity);
         return;
