@@ -1,9 +1,13 @@
 import router from '@ohos.router';
 import prefManager from '../service/PreferenceManager';
-import { bgGradient, cardBg, cardAccent, cardBgStrong, cardFrost, cardSecondary, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary } from '../model/ThemeManager';
+import { bgGradient, cardAccent, cardFrost, cardSecondary, cardBorderSub, tcPrimary, tcSecondary, tcTertiary } from '../model/ThemeManager';
 import loadingManager from '../service/LoadingManager';
 import { LoadingComponent } from '../components/LoadingComponent';
 
+/**
+ * Settings — 设置页面
+ * 温度单位(C/F)、自动刷新间隔、深色模式、关于、清除缓存
+ */
 @Entry
 @Component
 struct Settings {
@@ -20,6 +24,7 @@ struct Settings {
     this.loadThemeSettings();
   }
 
+  /** 从DB加载全部设置 */
   loadThemeSettings(): void {
     loadingManager.show();
     let ctx: Context = this.getUIContext().getHostContext()!;
@@ -36,6 +41,7 @@ struct Settings {
 
   build() {
     Stack() {
+      // 渐变背景
       Column().width('100%').height('100%')
         .linearGradient({
           direction: GradientDirection.Bottom,
@@ -43,10 +49,12 @@ struct Settings {
         })
 
       Column() {
+        // 顶部标题
         Row() {
           Text('\u2190 ').fontSize(22).fontColor('rgba(255,255,255,0.8)')
             .onClick((): void => { this.getUIContext().getRouter().back(); })
-          Text($r('app.string.settings')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ left: 8 })
+          Text($r('app.string.settings')).fontSize(22).fontWeight(FontWeight.Bold)
+            .fontColor(tcPrimary(this.isDark)).margin({ left: 8 })
           Blank()
         }.width('100%').height(56).padding({ left: 20, right: 20 })
 
@@ -73,7 +81,8 @@ struct Settings {
                 .animation({ duration: 250, curve: Curve.EaseOut })
                 .onClick((): void => { this.tempUnit = 'F'; prefManager.saveTempUnit('F'); })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
+              .backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -92,20 +101,24 @@ struct Settings {
               Row() {
                 ForEach([15, 30, 60], (val: number): void => {
                   Row() {
-                    Text(String(val)).fontSize(14).fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
-                    Text($r('app.string.min_abbr')).fontSize(14).fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
+                    Text(String(val)).fontSize(14)
+                      .fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
+                    Text($r('app.string.min_abbr')).fontSize(14)
+                      .fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
                   }.padding({ top: 8, bottom: 8, left: 22, right: 22 })
-                  .backgroundColor(Number(this.refreshInterval) === val ? 'rgba(123,164,253,0.3)' : cardBgStrong(this.isDark))
-                  .borderRadius(14)
-                  .margin({ right: 10 })
-                  .onClick((): void => {
-                    this.refreshInterval = String(val);
-                    prefManager.saveRefreshInterval(String(val));
-                  })
+                    .backgroundColor(Number(this.refreshInterval) === val
+                      ? 'rgba(123,164,253,0.3)' : cardFrost(this.isDark))
+                    .borderRadius(14).margin({ right: 10 })
+                    .onClick((): void => {
+                      this.refreshInterval = String(val);
+                      prefManager.saveRefreshInterval(String(val));
+                    })
                 }, (val: number): string => String(val))
                 Blank()
               }.width('100%')
-            }.width('100%').padding(20).backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+            }.width('100%').padding(20)
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
+              .backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -121,18 +134,20 @@ struct Settings {
                   prefManager.saveDarkMode(this.darkMode);
                 })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
+              .backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
-            // ---- 关于（修复 [object Object] 问题）----
+            // ---- 关于 ----
             Row() {
               Text($r('app.string.about')).fontSize(16).fontColor(tcPrimary(this.isDark))
               Blank()
               Text($r('app.string.app_name')).fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ right: 4 })
               Text($r('app.string.version')).fontSize(14).fontColor(tcTertiary(this.isDark))
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
+              .backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
@@ -143,8 +158,7 @@ struct Settings {
               Text($r('app.string.click_to_clear'))
                 .fontSize(14).fontColor('rgba(255,120,120,0.8)')
                 .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-                .borderRadius(10)
-                .backgroundColor('rgba(255,100,100,0.1)')
+                .borderRadius(10).backgroundColor('rgba(255,100,100,0.1)')
                 .onClick((): void => {
                   this.getUIContext().showAlertDialog({
                     title: $r('app.string.clear_cache_title'),
@@ -165,7 +179,8 @@ struct Settings {
                   });
                 })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20)
+              .backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
           }.width('100%')
         }.scrollBar(BarState.Off).width('100%').layoutWeight(1)
@@ -177,11 +192,13 @@ struct Settings {
   }
 
   pageTransition() {
-    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(1)
-    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(0)
-    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(1)
-    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
+    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(1)
+    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(0)
+    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(1)
+    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(0)
   }
 }
-
-

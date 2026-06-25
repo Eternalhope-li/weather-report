@@ -5,15 +5,20 @@ import { RainSnowEffect } from "../components/RainSnowEffect";
 import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
 import router from "@ohos.router";
-import locationService from "../service/LocationService";
 import searchHistoryManager from "../service/SearchHistoryManager";
 import loadingManager from "../service/LoadingManager";
 import { LoadingComponent } from "../components/LoadingComponent";
 
+/**
+ * Index — 天气首页
+ * 数据流：高德地理编码 → 和风天气API
+ * 支持：切换城市、自动刷新、深色模式、温度单位切换
+ */
 @Entry
 @Component
 struct Index {
-  @State city: string = "滨州";
+  // ==================== 天气数据 ====================
+  @State city: string = "深圳";
   @State temp: string = "--";
   @State feelsLike: string = "--";
   @State humidity: string = "--";
@@ -26,31 +31,29 @@ struct Index {
   @State lastUpdated: string = "";
   @State daily: DailyForecast[] = [];
   @State hourly: HourlyForecast[] = [];
-  @State searchText: string = "";
-  @State showSearch: boolean = false;
-  @State loading: boolean = true;
-  @State error: string = "";
-  @State bg: string = "day";
-  @State isNight: boolean = false;
-  @State weatherType: string = "cloudy";
-  @State rainSnowType: string = "none";
-  @State history: string[] = [];
-  @State favorites: string[] = [];
-  @State searchHistory: string[] = [];
-  @State isFav: boolean = false;
-  @State globalMinTemp: number = 0;
-  @State globalMaxTemp: number = 30;
-  @State isRefreshing: boolean = false;
-  @State isLocating: boolean = false;
-  @State locErrorMsg: string = "";
-  @State warningTitle: string = "";
-  @State tempUnit: string = "C";
-  @State isDark: boolean = false;
-  @State refreshInterval: string = "30";
-  @State warningDesc: string = "";
   @State sunrise: string = "--";
   @State sunset: string = "--";
 
+  // ==================== 搜索相关 ====================
+  @State searchText: string = "";
+  @State showSearch: boolean = false;
+  @State searchHistory: string[] = [];
+
+  // ==================== 页面状态 ====================
+  @State loading: boolean = true;
+  @State error: string = "";
+  @State isNight: boolean = false;
+  @State rainSnowType: string = "none";
+  @State history: string[] = [];
+  @State favorites: string[] = [];
+  @State isFav: boolean = false;
+
+  // ==================== 设置 ====================
+  @State tempUnit: string = "C";
+  @State isDark: boolean = false;
+  @State refreshInterval: string = "30";
+
+  // ==================== 逐小时弹窗 ====================
   @State showHourlyPop: boolean = false;
   @State popTime: string = "";
   @State popTemp: string = "--";
@@ -66,53 +69,40 @@ struct Index {
   @State popWeatherIcon: string = "☀️";
   @State popWeatherDesc: string = "";
 
+  // ==================== 私有变量 ====================
   private refreshTimer: number = -1;
-  private lastReqCity: string = "";
-  private storageCity: string = '';
   private requestSeq: number = 0;
   private citySwitchPending: boolean = false;
 
+  // ==================== 生命周期 ====================
   aboutToAppear(): void {
-    this.loadSettingsAndStart();
     this.initDayNight();
+    this.loadSettingsAndStart();
   }
 
   onPageShow(): void {
-    // 优先检查 AppStorage 全局城市变更（来自 CityManage）
+    // 检查 AppStorage 是否有待切换的城市（来自 CityManage）
     try {
       let pendingCity: string = AppStorage.get<string>('globalCurrentCity') ?? '';
-      if (pendingCity.length > 0 && pendingCity !== this.city) {
-        console.info("[CitySwitch] onPageShow AppStorage city: " + pendingCity);
-        this.storageCity = pendingCity;
-        this.citySwitchPending = true;
+      if (pendingCity.length > 0) {
+        console.info("[CitySwitch] detect pending city: " + pendingCity);
         AppStorage.set<string>('globalCurrentCity', '');
-        loadingManager.show();
+        this.citySwitchPending = true;
         this.loadW(pendingCity);
         return;
       }
     } catch (_e) {}
+    // 次选：检查路由参数（备用方案）
     try {
       let params = router.getParams() as Record<string, Object>;
       if (params !== null && params !== undefined && params.switchCity !== undefined) {
         let switchTo: string = String(params.switchCity);
         if (switchTo.length > 0) {
-          console.info("[CitySwitch] onPageShow switch city: " + switchTo);
-          this.storageCity = switchTo;
           this.citySwitchPending = true;
           this.loadW(cleanCityName(switchTo));
           return;
         }
       }
-    } catch (_e) {}
-    try {
-      let ctx: Context = this.getUIContext().getHostContext()!;
-      prefManager.init(ctx).then((): void => {
-        prefManager.getSettings().then((s): void => {
-          this.tempUnit = s.tempUnit; this.isDark = s.darkMode === "true";
-          this.refreshInterval = s.refreshInterval; this.setupAutoRefresh();
-        }).catch((): void => {});
-        this.loadSearchHistory();
-      }).catch((): void => {});
     } catch (_e) {}
   }
 
@@ -120,160 +110,52 @@ struct Index {
     if (this.refreshTimer > 0) { clearInterval(this.refreshTimer); this.refreshTimer = -1; }
   }
 
+  // ==================== 初始化 ====================
+
+  /** 加载设置 -> 并行初始化DB和搜索历史 -> 加载上次城市天气 */
   loadSettingsAndStart(): void {
+    loadingManager.show();
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
-        Promise.all([prefManager.getSettings(), prefManager.getFavorites(), prefManager.getHistory()]).then((r): void => {
-          this.tempUnit = r[0].tempUnit; this.isDark = r[0].darkMode === "true";
-          this.refreshInterval = r[0].refreshInterval; this.setupAutoRefresh();
+        Promise.all([
+          prefManager.getSettings(),
+          prefManager.getFavorites(),
+          prefManager.getHistory()
+        ]).then((r): void => {
+          this.tempUnit = r[0].tempUnit;
+          this.isDark = r[0].darkMode === "true";
+          this.refreshInterval = r[0].refreshInterval;
+          this.setupAutoRefresh();
           this.favorites = r[1];
           if (this.favorites.indexOf(this.city) >= 0) { this.isFav = true; }
           this.history = r[2];
         }).catch((): void => {});
+
+        // 并行：加载搜索历史 + 上次城市
         this.loadSearchHistory();
         this.loadLastCity();
       }).catch((): void => { this.loadLastCity(); });
     } catch (_e) { this.loadLastCity(); }
   }
 
-  loadSearchHistory(): void {
-    try {
-      let ctx: Context = this.getUIContext().getHostContext()!;
-      searchHistoryManager.init(ctx).then((): void => {
-        searchHistoryManager.getHistory().then((items): void => {
-          this.searchHistory = items.map((item): string => item.cityName);
-        }).catch((): void => {});
-      }).catch((): void => {});
-    } catch (_e) {}
-  }
-
-  setupAutoRefresh(): void {
-    if (this.refreshTimer > 0) { clearInterval(this.refreshTimer); }
-    let interval: number = Number(this.refreshInterval) * 60000;
-    if (interval <= 0) { return; }
-    this.refreshTimer = setInterval((): void => {
-      this.loadW(this.city);
-    }, interval);
-  }
-
-  async loadW(city: string): Promise<void> {
-    let q: string = city.trim();
-    if (q.length === 0) { return; }
-    this.requestSeq++;
-    let seq: number = this.requestSeq;
-    console.info("[CitySwitch] loadW #" + seq + " city=\"" + q + "\"");
-    this.lastReqCity = q; this.loading = true; this.error = "";
-    this.showCachedFirst(q);
-    try {
-      let ctx: Context = this.getUIContext().getHostContext()!;
-      await prefManager.init(ctx);
-    } catch (_e) {}
-    try {
-      let data: WeatherData = await weatherService.fetchWeather(q);
-      if (seq !== this.requestSeq) { console.info("[CitySwitch] skip stale #" + seq + ", current #" + this.requestSeq); this.loading = false; return; }
-      this.city = data.city;
-      if (this.isErrorMsg(data.current.weatherDesc)) {
-        this.error = data.current.weatherDesc; loadingManager.hide(); this.loading = false;
-        return;
-      }
-      this.applyWeatherData(data);
-      try {
-        let ctx: Context = this.getUIContext().getHostContext()!;
-        searchHistoryManager.init(ctx).then((): void => {
-          searchHistoryManager.addHistory(data.city).catch((): void => {});
-          searchHistoryManager.getHistory().then((h): void => { this.searchHistory = h.map((i): string => i.cityName); }).catch((): void => {});
-        }).catch((): void => {});
-      } catch (_se) {}
-      try { prefManager.saveWeatherCache(data.city, JSON.stringify(data)); } catch (_ce) {}
-      try { prefManager.addToHistory(data.city).catch((): void => {}); } catch (_he) {}
-      try { prefManager.saveLastCity(data.city).catch((): void => {}); } catch (_lc) {}
-    } catch (e) { loadingManager.hide(); this.error = "获取天气失败"; this.tryLoadCache(city); }
-    loadingManager.hide(); this.loading = false; this.isRefreshing = false;
-  }
-
-  isErrorMsg(desc: string): boolean {
-    return desc === "和风天气权限同步中，稍后刷新重试" || desc === "城市解析失败，请更换城市" || desc === "网络异常，请检查网络后重试" || desc === "天气数据请求失败，请登录和风控制台确认";
-  }
-
-  applyWeatherData(data: WeatherData): void {
-    this.temp = data.current.temp; this.feelsLike = data.current.feelsLike;
-    this.humidity = data.current.humidity; this.windSpeed = data.current.windSpeed;
-    this.windDir = data.current.windDir; this.windScale = data.current.windScale;
-    this.aqi = data.current.aqi; this.weatherDesc = data.current.weatherDesc;
-    this.weatherIcon = data.current.weatherIcon; this.lastUpdated = data.lastUpdated;
-    this.daily = data.daily; this.hourly = data.hourly;
-    this.sunrise = data.current.sunrise; this.sunset = data.current.sunset;
-    this.warningTitle = data.warningTitle; this.warningDesc = data.warningDesc;
-    this.bg = this.pickBg(data.current.weatherDesc);
-    this.updateDayNight(data.current.sunrise, data.current.sunset);
-    let wt: WeatherType = getWeatherType(data.current.weatherDesc);
-    this.weatherType = wt;
-    this.rainSnowType = particleType(wt);
-    let gMin: number = 100; let gMax: number = -100;
-    for (let i: number = 0; i < data.daily.length; i++) {
-      let d: DailyForecast = data.daily[i];
-      let mi: number = Number(d.minTemp); let ma: number = Number(d.maxTemp);
-      if (!isNaN(mi) && mi < gMin) { gMin = mi; }
-      if (!isNaN(ma) && ma > gMax) { gMax = ma; }
-    }
-    if (gMin < 100 && gMax > -100) { this.globalMinTemp = gMin; this.globalMaxTemp = gMax; }
-  }
-
-  showCachedFirst(q: string): void {
-    try {
-      let ctx: Context = this.getUIContext().getHostContext()!;
-      prefManager.init(ctx).then((): void => {
-        prefManager.getWeatherCache(q).then((c: string | null): void => {
-          if (c !== null && c.length > 0) {
-            try { let d: WeatherData = JSON.parse(c) as WeatherData; this.applyWeatherData(d); this.city = d.city; } catch (_pe) {}
-          }
-        }).catch((): void => {});
-      }).catch((): void => {});
-    } catch (_ce) {}
-  }
-
-  tryLoadCache(city: string): void { loadingManager.hide();
-    try {
-      let ctx: Context = this.getUIContext().getHostContext()!;
-      prefManager.init(ctx).then((): void => {
-        prefManager.getWeatherCache(city).then((c: string | null): void => {
-          if (c !== null && c.length > 0) {
-            try { let d: WeatherData = JSON.parse(c) as WeatherData; this.applyWeatherData(d); this.city = d.city; } catch (_pe) {}
-          }
-        }).catch((): void => {});
-      }).catch((): void => {});
-    } catch (_ce) {}
-  }
-
-  async tryLocateAndLoad(): Promise<void> {
-    try {
-      let r = await locationService.getCurrentCity(this.getUIContext().getHostContext()!);
-      if (r.success) { await this.loadW(cleanCityName(r.city)); }
-      else { this.loadLastCity(); }
-    } catch (_e) { this.loadLastCity(); }
-  }
-
-  async locate(): Promise<void> {
-    this.isLocating = true; loadingManager.show();
-    try {
-      let r = await locationService.getCurrentCity(this.getUIContext().getHostContext()!);
-      if (r.success) { await this.loadW(cleanCityName(r.city)); }
-      else { this.locErrorMsg = r.errorMsg; setTimeout((): void => { this.locErrorMsg = ""; }, 3000); }
-    } catch (e) { this.locErrorMsg = "定位失败"; setTimeout((): void => { this.locErrorMsg = ""; }, 3000); }
-    finally { loadingManager.hide(); this.isLocating = false; }
-  }
-
+  /** 读取上次城市并自动加载天气 */
   loadLastCity(): void {
     if (this.citySwitchPending) { this.citySwitchPending = false; return; }
-    prefManager.getLastCity().then((c: string): void => { this.loadW(c); }).catch((): void => { this.loadW("滨州"); });
+    prefManager.getLastCity().then((c: string): void => {
+      this.loadW(c);
+    }).catch((): void => {
+      this.loadW("深圳");
+    });
   }
 
+  /** 初始化日夜判断（6~19点为白天） */
   initDayNight(): void {
     let h: number = new Date().getHours();
     this.isNight = h >= 19 || h < 6;
   }
 
+  /** 根据日出日落精确更新日夜状态 */
   updateDayNight(sunrise: string, sunset: string): void {
     try {
       if (sunrise.length > 3 && sunset.length > 3) {
@@ -285,298 +167,670 @@ struct Index {
           let srMin: number = Number(srParts[0]) * 60 + Number(srParts[1]);
           let ssMin: number = Number(ssParts[0]) * 60 + Number(ssParts[1]);
           this.isNight = nowMin < srMin || nowMin > ssMin;
-          return;
         }
       }
     } catch (_e) {}
-    let h: number = new Date().getHours();
-    this.isNight = h >= 19 || h < 6;
   }
 
-  pickBg(desc: string): string {
-    let h: number = new Date().getHours();
-    if (h >= 19 || h < 6) { if (desc.indexOf("雨") >= 0 || desc.indexOf("雪") >= 0 || desc.indexOf("雷") >= 0) { return "rain"; } return "night"; }
-    if (desc.indexOf("雨") >= 0 || desc.indexOf("雪") >= 0 || desc.indexOf("雷") >= 0) { return "rain"; }
-    if (desc.indexOf("雾") >= 0) { return "fog"; }
-    if (desc.indexOf("多云") >= 0 || desc.indexOf("阴") >= 0) { return "cloudy"; }
-    return "day";
+  // ==================== 天气数据加载 ====================
+
+  /**
+   * 核心加载方法：按高德->和风顺序获取天气
+   * 所有路径末尾都会调用 loadingManager.hide()
+   */
+  async loadW(city: string): Promise<void> {
+    let q: string = city.trim();
+    if (q.length === 0) { loadingManager.hide(); return; }
+    this.requestSeq++;
+    let seq: number = this.requestSeq;
+    console.info("[Weather] loadW #" + seq + " city=\"" + q + "\"");
+    this.loading = true;
+    this.error = "";
+    this.showCachedFirst(q);
+
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      await prefManager.init(ctx);
+    } catch (_e) {}
+
+    try {
+      let data: WeatherData = await weatherService.fetchWeather(q);
+      // 校验请求序号，防止过时响应覆盖
+      if (seq !== this.requestSeq) {
+        console.info("[Weather] skip stale #" + seq);
+        loadingManager.hide();
+        this.loading = false;
+        return;
+      }
+      this.city = data.city;
+      // 分层错误提示
+      if (this.isErrorMsg(data.current.weatherDesc)) {
+        this.error = data.current.weatherDesc;
+        loadingManager.hide();
+        this.loading = false;
+        return;
+      }
+      this.applyWeatherData(data);
+      // 异步保存：缓存、历史、上次城市（不阻塞UI）
+      try {
+        let ctx: Context = this.getUIContext().getHostContext()!;
+        searchHistoryManager.init(ctx).then((): void => {
+          searchHistoryManager.addHistory(data.city).catch((): void => {});
+          searchHistoryManager.getHistory().then((h): void => {
+            this.searchHistory = h.map((i): string => i.cityName);
+          }).catch((): void => {});
+        }).catch((): void => {});
+      } catch (_se) {}
+      try { prefManager.saveWeatherCache(data.city, JSON.stringify(data)); } catch (_ce) {}
+      try { prefManager.addToHistory(data.city).catch((): void => {}); } catch (_he) {}
+      try { prefManager.saveLastCity(data.city).catch((): void => {}); } catch (_lc) {}
+    } catch (e) {
+      console.error("[Weather] loadW error", JSON.stringify(e));
+      this.error = "获取天气失败";
+      this.tryLoadCache(city);
+    }
+    loadingManager.hide();
+    this.loading = false;
   }
 
-  aqiLevel(aqiStr: string): string {
-    let v: number = Number(aqiStr);
-    if (isNaN(v)) { return ""; }
-    if (v <= 50) { return "优"; } if (v <= 100) { return "良"; }
-    if (v <= 150) { return "轻度污染"; } if (v <= 200) { return "中度污染"; }
-    if (v <= 300) { return "重度污染"; } return "严重污染";
+  /** 错误消息匹配 */
+  isErrorMsg(desc: string): boolean {
+    return desc === "和风天气权限同步中，稍后刷新重试"
+        || desc === "城市解析失败，请更换城市"
+        || desc === "网络异常，请检查网络后重试"
+        || desc === "天气数据请求失败，请登录和风控制台确认";
   }
 
-  barWidth(min: string, max: string): string {
-    let mi: number = Number(min); let ma: number = Number(max);
-    if (isNaN(mi) || isNaN(ma)) { return "50%"; }
-    let range: number = this.globalMaxTemp - this.globalMinTemp;
-    if (range <= 0) { return "50%"; }
-    let pct: number = ((ma - mi) / range) * 100;
-    if (pct < 10) { pct = 10; } if (pct > 90) { pct = 90; }
-    return String(pct) + "%";
+  /** 应用天气数据到状态变量 */
+  applyWeatherData(data: WeatherData): void {
+    this.temp = data.current.temp;
+    this.feelsLike = data.current.feelsLike;
+    this.humidity = data.current.humidity;
+    this.windSpeed = data.current.windSpeed;
+    this.windDir = data.current.windDir;
+    this.windScale = data.current.windScale;
+    this.aqi = data.current.aqi;
+    this.weatherDesc = data.current.weatherDesc;
+    this.weatherIcon = data.current.weatherIcon;
+    this.lastUpdated = data.lastUpdated;
+    this.daily = data.daily;
+    this.hourly = data.hourly;
+    this.sunrise = data.current.sunrise;
+    this.sunset = data.current.sunset;
+    this.updateDayNight(data.current.sunrise, data.current.sunset);
+    // 更新天气类型用于背景渐变和粒子特效
+    let wt: WeatherType = getWeatherType(data.current.weatherDesc);
+    this.rainSnowType = particleType(wt);
   }
 
-  barOffset(min: string): string {
-    let mi: number = Number(min); if (isNaN(mi)) { return "0%"; }
-    let range: number = this.globalMaxTemp - this.globalMinTemp;
-    if (range <= 0) { return "0%"; }
-    let pct: number = ((mi - this.globalMinTemp) / range) * 70 + 15;
-    if (pct < 0) { pct = 0; } if (pct > 80) { pct = 80; }
-    return String(pct) + "%";
+  /** 优先展示本地缓存的天气数据 */
+  showCachedFirst(city: string): void {
+    prefManager.getWeatherCache(city).then((cached: string | null): void => {
+      if (cached !== null) {
+        try {
+          let data: WeatherData = JSON.parse(cached) as WeatherData;
+          if (data.current.temp !== "--") {
+            this.applyWeatherData(data);
+          }
+        } catch (_e) {}
+      }
+    }).catch((): void => {});
   }
+
+  /** 网络请求失败时尝试读取缓存 */
+  tryLoadCache(city: string): void {
+    prefManager.getWeatherCache(city).then((cached: string | null): void => {
+      if (cached !== null) {
+        try {
+          let data: WeatherData = JSON.parse(cached) as WeatherData;
+          if (data.current.temp !== "--") {
+            this.applyWeatherData(data);
+            return;
+          }
+        } catch (_e) {}
+      }
+      this.loading = false;
+    }).catch((): void => { this.loading = false; });
+  }
+
+  /** 加载搜索历史 */
+  loadSearchHistory(): void {
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      searchHistoryManager.init(ctx).then((): void => {
+        searchHistoryManager.getHistory().then((items): void => {
+          this.searchHistory = items.map((item): string => item.cityName);
+        }).catch((): void => {});
+      }).catch((): void => {});
+    } catch (_e) {}
+  }
+
+  // ==================== 自动刷新 ====================
+  setupAutoRefresh(): void {
+    if (this.refreshTimer > 0) { clearInterval(this.refreshTimer); }
+    let interval: number = Number(this.refreshInterval) * 60000;
+    if (interval <= 0) { return; }
+    this.refreshTimer = setInterval((): void => {
+      this.loadW(this.city);
+    }, interval);
+  }
+
+  // ==================== 构建UI ====================
 
   build() {
     Stack() {
-      Column().width("100%").height("100%").linearGradient({ direction: GradientDirection.Bottom, colors: bgCol(this.isDark || this.isNight, this.weatherDesc) })
+      // 底层：天气渐变背景
+      Column().width("100%").height("100%")
+        .linearGradient({
+          direction: GradientDirection.Bottom,
+          colors: bgCol(this.isNight, this.weatherDesc)
+        })
 
-      // 夜间星空（晴天/多云显示，雨雪天气隐藏）
+      // 夜间星空粒子（晴/多云时显示）
       if (this.isNight && this.rainSnowType === "none") {
         Column() {
-        ForEach(starPositions, (s: StarPos): void => {
-          Column()
-            .width(s.size).height(s.size)
-            .backgroundColor(Color.White)
-            .borderRadius(s.size / 2)
-            .position({ x: s.x, y: s.y })
-            .opacity(s.opacity)
-            .shadow({ radius: s.size, color: tcTertiary(this.isDark) })
-        }, (s: StarPos): string => s.x + s.y)
+          ForEach(starPositions, (s: StarPos): void => {
+            Column()
+              .width(s.size).height(s.size)
+              .backgroundColor(Color.White)
+              .borderRadius(s.size / 2)
+              .position({ x: s.x, y: s.y })
+              .opacity(s.opacity)
+              .shadow({ radius: s.size, color: tcTertiary(this.isDark) })
+          }, (s: StarPos): string => s.x + s.y)
         }.width('100%').height('100%')
       }
 
-      // 雨雪粒子特效（props驱动自动启停）
+      // 雨雪粒子特效
       RainSnowEffect({ particleType: this.rainSnowType, density: 1 })
 
+      // 加载骨架屏（仅首次加载时显示）
       if (this.loading && this.error.length === 0) {
+        this.skeletonView()
+      }
+
+      // 主内容区域（可纵向滚动）
+      Scroll() {
         Column() {
-          Row() {
-            Column().width(80).height(22).borderRadius(11).backgroundColor("rgba(255,255,255,0.10)")
-            Blank()
-            Row() { ForEach([1, 2, 3, 4, 5], (): void => { Column().width(24).height(24).borderRadius(12).backgroundColor(cardFrost(this.isDark)).margin({ left: 10 }) }) }
-          }.width("100%").padding({ top: 36, bottom: 16, left: 8, right: 8 })
-          Column() {
-            Column().width(72).height(72).borderRadius(36).backgroundColor("rgba(255,255,255,0.10)").margin({ top: 30 })
-            Column().width(140).height(56).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 12 })
-            Column().width(100).height(18).borderRadius(9).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
-          }.width("100%").alignItems(HorizontalAlign.Center)
-          Row() {
-            ForEach([1, 2], (): void => {
-              Column() {
-                Column().width(24).height(24).borderRadius(12).backgroundColor(cardFrost(this.isDark))
-                Column().width(40).height(10).borderRadius(5).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
-                Column().width(56).height(20).borderRadius(10).backgroundColor(cardFrost(this.isDark)).margin({ top: 6 })
-              }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-            })
-          }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 16 }).padding(8).shadow({ radius: 6, color: "rgba(64,80,110,0.05)", offsetX: 0, offsetY: 1 })
+          // 顶部导航栏：城市名 + 功能按钮
+          this.topBar()
+
+          // 错误提示 + 刷新按钮
+          if (this.error.length > 0) {
+            this.errorBanner()
+          }
+
+          // 主温度大卡片
+          if (this.error.length === 0) {
+            this.mainTempCard()
+
+            // 湿度 + 风力双卡片
+            this.detailCards()
+
+            // 逐小时预报（横向滚动）
+            if (this.hourly.length > 0 && this.error.length === 0) {
+              this.hourlyForecast()
+            }
+
+            // 未来天气列表
+            if (this.daily.length > 0 && this.error.length === 0) {
+              this.dailyForecast()
+            }
+
+            // 更新时间
+            if (this.lastUpdated.length > 0) {
+              this.updateFooter()
+            }
+          }
+
+          Blank().height(30)
         }.width("100%").padding({ left: 20, right: 20 })
+      }.scrollBar(BarState.Off).width("100%").edgeEffect(EdgeEffect.Spring)
+
+      // 搜索面板（点击🔍展开）
+      if (this.showSearch) {
+        this.searchPanel()
       }
 
-      if (this.error.length > 0 && !this.loading) {
-        Column() {
-          Text(String(this.weatherIcon)).fontSize(48).margin({ top: 40 })
-          Text(String(this.error)).fontSize(16).fontColor(tcPrimary(this.isDark)).textAlign(TextAlign.Center).margin({ top: 12 }).width("100%").maxLines(3)
-          if (this.error.indexOf("请尝试") >= 0) {
-            Text("一键切换：").fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 20, bottom: 10 }).width("100%").textAlign(TextAlign.Center)
-            Flex({ alignItems: ItemAlign.Center, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-              ForEach(["北京", "上海", "广州", "深圳", "大连", "青岛", "杭州", "成都"], (c: string): void => { Text(c).fontSize(14).fontColor(tcPrimary(this.isDark)).padding({ top: 8, bottom: 8, left: 20, right: 20 }).backgroundColor(cardBg(this.isDark)).borderRadius(20).margin({ right: 8, bottom: 8 }).onClick((): void => { this.error = ""; this.loadW(c); })
-              }, (c: string): string => c)
-            }.width("100%").margin({ top: 4 })
-          } else {
-            Button("刷新重试").margin({ top: 24 }).height(44).width(160).borderRadius(22).backgroundColor(cardBgStrong(this.isDark)).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Bold).onClick((): void => { this.error = ""; this.loadW(this.city); })
-          }
-        }.width("100%").alignItems(HorizontalAlign.Center)
-      }
-
-      if (this.locErrorMsg.length > 0) {
-        Text(this.locErrorMsg).fontSize(13).fontColor("#FFCDD2").textAlign(TextAlign.Center).padding({ top: 8, bottom: 8, left: 20, right: 20 }).width("100%").backgroundColor("rgba(255,0,0,0.15)").borderRadius(12).margin({ top: 8, left: 20, right: 20 })
-      }
-
-      if (!this.loading || this.error.length > 0) {
-        Refresh({ refreshing: this.isRefreshing }) {
-          Scroll() {
-            Column() {
-              Row() {
-                Row() { Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)); Text("  ›").fontSize(20).fontColor(tcTertiary(this.isDark)) }.onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/CityManage" }); })
-                Blank()
-                Text("📍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.locate(); })
-                Text("🔍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.showSearch = !this.showSearch; if (this.showSearch) {  } })
-                Text(!this.isFav ? "☆" : "★").fontSize(20).margin({ left: 10 }).fontColor(this.isFav ? "#FFD700" : tcSecondary(this.isDark)).onClick((): void => { prefManager.toggleFavorite(this.city).then((f: string[]): void => { this.favorites = f; this.isFav = f.indexOf(this.city) >= 0; }).catch((): void => {}); })
-                Text("⚙️").fontSize(18).margin({ left: 10 }).onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/Settings" }); })
-              }.width("100%").padding({ top: 36, bottom: 16 })
-
-              if (this.showSearch) {
-                Row() {
-                  TextInput({ placeholder: "搜索城市...", text: this.searchText }).height(48).layoutWeight(1).backgroundColor(this.isDark ? cardBg(this.isDark) : tcTertiary(this.isDark))
-                    .fontColor(tcPrimary(this.isDark)).placeholderColor(tcTertiary(this.isDark))
-                    .borderRadius(16).padding({ left: 16 })
-                    .onChange((val: string): void => { this.searchText = val; })
-                    .onSubmit((): void => {
-                      let q: string = cleanCityName(this.searchText.trim());
-                      if (q.length > 0) { this.showSearch = false; this.searchText = ""; this.loadW(q); }
-                    })
-                  Text("✕").fontSize(18).fontColor(tcTertiary(this.isDark)).margin({ left: 8 }).width(36).height(48).textAlign(TextAlign.Center).lineHeight(48)
-                    .onClick((): void => { this.showSearch = false; this.searchText = ""; })
-                }.width("100%").margin({ bottom: 12 })
-              }
-
-              if (this.showSearch && this.searchHistory.length > 0) {
-                Column() {
-                  Row() {
-                    Text("🕐 " + "搜索历史").fontSize(13).fontColor(tcTertiary(this.isDark))
-                    Blank()
-                    Text("清空").fontSize(12).fontColor("rgba(255,150,150,0.7)")
-                      .onClick((): void => {
-                        loadingManager.show();
-                        searchHistoryManager.clearAll().then((): void => {
-                          this.searchHistory = [];
-                          loadingManager.hide();
-                        }).catch((): void => { loadingManager.hide(); });
-                      })
-                  }.width("100%").margin({ bottom: 8 })
-                  ForEach(this.searchHistory, (city: string): void => {
-                    Text(city).fontSize(14).fontColor(tcPrimary(this.isDark)).padding({ top: 6, bottom: 6, left: 14, right: 14 }).backgroundColor(cardSecondary(this.isDark)).borderRadius(12).margin({ right: 6, bottom: 6 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
-                      .onClick((): void => { this.showSearch = false; this.searchText = ""; this.loadW(city); })
-                  }, (city: string): string => city)
-                }.width("100%").margin({ bottom: 12 }).alignItems(HorizontalAlign.Start)
-              }
-
-              // 主天气显示
-              Column() {
-                // Weather icon
-                Text(String(this.weatherIcon)).fontSize(72).margin({ top: 8 }).opacity(0.9)
-                Text(convertTempStr(this.temp, this.tempUnit)).fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcTemp(this.isDark)).lineHeight(76).margin({ top: 4 })
-                Text(tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcTempUnit(this.isDark)).margin({ top: -20, right: "20%" }).alignSelf(ItemAlign.End)
-                Text(this.weatherDesc).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).letterSpacing(8).margin({ top: 8 })
-
-                if (this.daily.length > 0) {
-                  Row() {
-                    Text("\u2191").fontSize(11).fontColor(tcTertiary(this.isDark))
-                    Text(convertTempStr(this.daily[0].maxTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor(tcSecondary(this.isDark)).margin({ left: 3 })
-                    Text("  /  ").fontSize(13).fontColor(tcMuted(this.isDark))
-                    Text(convertTempStr(this.daily[0].minTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor(tcSecondary(this.isDark)).margin({ right: 3 })
-                    Text("\u2193").fontSize(11).fontColor(tcTertiary(this.isDark))
-                  }.margin({ top: 6, bottom: 4 }).alignItems(VerticalAlign.Center)
-                }
-
-                Row() {
-                  Column() {
-                    Text("💧").fontSize(22)
-                    Text($r("app.string.humidity")).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
-                    Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
-                  }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-                  Column().width(1).height(36).backgroundColor(cardFrost(this.isDark))
-                  Column() {
-                    Text("🌬️").fontSize(22)
-                    Text($r("app.string.wind")).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
-                    Text(this.windScale.length > 0 ? this.windScale + "级" : (this.windSpeed + "km/h")).fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
-                  }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-                }.width("100%").padding(18).borderRadius(20).backgroundColor(cardSecondary(this.isDark)).margin({ top: 20 }).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
-              }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 }).alignItems(HorizontalAlign.Center).shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 }).backdropBlur(24).border({ width: 0.5, color: cardBorder(this.isDark) }).transition({ type: TransitionType.Insert, opacity: 0 })
-
-              if (this.hourly.length > 0 && this.error.length === 0) {
-                Column() {
-                  Row() { Text("⏰ 逐小时预报").fontSize(14).fontColor(tcTertiary(this.isDark)).letterSpacing(3); Blank(); if (this.lastUpdated.length > 0) { Text("更新 " + this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark)) } }.width("100%").margin({ bottom: 12 })
-                  List({ space: 8 }) {
-                    ForEach(this.hourly, (h: HourlyForecast): void => {
-                      ListItem() {
-                        Column() {
-                          Text(timeLabel(h.time)).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ bottom: 8 })
-                          Text(String(h.weatherIcon)).fontSize(22).margin({ bottom: 6 })
-                          Text(convertTempStr(h.temp, this.tempUnit) + "°").fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
-                          if (h.precipProb !== "--") { Text(h.precipProb + "%").fontSize(10).fontColor(accentBlue).margin({ top: 4 }) }
-                        }.width(68).padding({ top: 14, bottom: 12 }).borderRadius(22).backgroundColor(cardAccent(this.isNight)).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
-                        .margin({ right: 8 })
-                        .onClick((): void => {
-                          this.popTime = h.time; this.popTemp = h.temp; this.popFeelsLike = h.feelsLike;
-                          this.popHumidity = h.humidity; this.popWindDir = h.windDir; this.popWindScale = h.windScale;
-                          this.popWindSpeed = h.windSpeed; this.popPrecipProb = h.precipProb; this.popPrecip = h.precip;
-                          this.popPressure = h.pressure; this.popUvIndex = h.uvIndex;
-                          this.popWeatherIcon = h.weatherIcon; this.popWeatherDesc = h.weatherDesc;
-                          this.showHourlyPop = true;
-                        })
-                      }
-                    }, (h: HourlyForecast): string => h.time)
-                  }.listDirection(Axis.Horizontal).width("100%").edgeEffect(EdgeEffect.Spring).scrollBar(BarState.Off)
-                }.width("100%").padding(16).borderRadius(28).backgroundColor(cardSecondary(this.isDark)).margin({ top: 16 }).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
-              }
-// Daily forecast
-              if (this.daily.length > 0 && this.error.length === 0) {
-                Column() {
-                  Text("📅 未来天气").fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ bottom: 10 }).width("100%")
-                  ForEach(this.daily, (d: DailyForecast): void => {
-                    Row() {
-                      Text(d.dayOfWeek).fontSize(15).fontColor(tcPrimary(this.isDark)).width(44)
-                      Text(d.weatherIcon).fontSize(20).margin({ left: 6 }).width(28).textAlign(TextAlign.Center)
-                      Text(d.weatherDesc).fontSize(14).fontColor(tcSecondary(this.isDark)).width(50).textAlign(TextAlign.Center).margin({ left: 4 })
-                      Blank()
-                      Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ right: 8 })
-                      Column() { Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4).borderRadius(2).backgroundColor("#7BA4FD").margin({ left: this.barOffset(d.minTemp) }) }.width(80).height(4).backgroundColor(cardFrost(this.isDark)).borderRadius(2).margin({ right: 8 })
-                      Text(convertTempStr(d.maxTemp, this.tempUnit) + "°").fontSize(14).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width(36).textAlign(TextAlign.End)
-                      Text("›").fontSize(18).fontColor(tcMuted(this.isDark)).margin({ left: 4 })
-                    }.width("100%").padding({ top: 10, bottom: 10 }).borderRadius(16).onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/Detail", params: { date: d.date, dayOfWeek: d.dayOfWeek, weatherIcon: d.weatherIcon, weatherDesc: d.weatherDesc, maxTemp: d.maxTemp, minTemp: d.minTemp, chanceOfRain: d.chanceOfRain } }); })
-                  }, (d: DailyForecast): string => d.date)
-                }.width("100%").padding(14).borderRadius(28).backgroundColor(cardSecondary(this.isDark)).margin({ top: 16 }).padding(8).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
-              }
-
-              if (this.lastUpdated.length > 0) {
-                Text($r("app.string.last_update") + " " + this.lastUpdated).fontSize(11).fontColor(tcTertiary(this.isDark)).letterSpacing(1).margin({ top: 20, bottom: 4 }).width("100%").textAlign(TextAlign.Center)
-              }
-              Blank().height(40)
-            }.width("100%")
-          }.height("100%").scrollBar(BarState.Off).width("100%").padding({ left: 20, right: 20 }).edgeEffect(EdgeEffect.Spring)
-        }.width("100%").height("100%").onStateChange((state: number): void => {
-          if (state === 3) {
-            this.isRefreshing = true;
-            this.loadW(this.city);
-          }
-        })
-      }
-
+      // 逐小时详情弹窗
       if (this.showHourlyPop) {
-        Column() {
-          Column() {
-            Row() { Text(this.popWeatherIcon).fontSize(36).margin({ right: 10 }); Column() { Text(this.popWeatherDesc).fontSize(18).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)); Text(this.popTime.length >= 16 ? this.popTime.substring(11, 16) + " " + this.popTime.substring(0, 10) : this.popTime).fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 2 }) }.alignItems(HorizontalAlign.Start); Blank(); Text("✕").fontSize(22).fontColor(tcTertiary(this.isDark)).width(32).height(32).textAlign(TextAlign.Center).onClick((): void => { this.showHourlyPop = false; }) }.width("100%").margin({ bottom: 16 })
-            Text(convertTempStr(this.popTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width("100%").textAlign(TextAlign.Center).margin({ bottom: 16 })
-            Row() { this.detailItem("💧", $r("app.string.humidity"), this.popHumidity + "%"); this.detailItem("🌬️", $r("app.string.wind"), this.popWindScale.length > 0 ? this.popWindScale : this.popWindSpeed); this.detailItem("☀️", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-") }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
-            Row() { this.detailItem("🌧️", $r("app.string.precip_prob"), (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%"); this.detailItem("💧", $r("app.string.precip_amount"), (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm"); this.detailItem("🌫️", $r("app.string.pressure"), (this.popPressure !== "--" ? this.popPressure : "-") + "hPa") }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
-            Row() { this.detailItem("🌡️", $r("app.string.feels_like"), convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit)) }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 12 })
-            Button($r("app.string.close")).width("100%").height(44).borderRadius(22).backgroundColor(cardBg(this.isDark)).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Bold).onClick((): void => { this.showHourlyPop = false; })
-          }.width("100%").padding(24).borderRadius(32).backgroundColor(cardFrost(this.isDark))
-        }.width("100%").height("100%").padding(24).justifyContent(FlexAlign.Center).backgroundColor("rgba(0,0,0,0.5)").onClick((): void => { this.showHourlyPop = false; })
+        this.hourlyPopup()
       }
 
+      // 全局加载动画
       LoadingComponent()
     }.width("100%").height("100%")
   }
 
+  // ==================== @Builder 子视图 ====================
+
+  /** 顶部导航栏 */
+  @Builder topBar() {
+    Row() {
+      // 城市名 + 展开箭头
+      Row() {
+        Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+        Text("  ›").fontSize(20).fontColor(tcTertiary(this.isDark))
+      }.onClick((): void => {
+        this.getUIContext().getRouter().pushUrl({ url: "pages/CityManage" });
+      })
+
+      Blank()
+
+      // 功能图标
+      Text("📍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.locate(); })
+      Text("🔍").fontSize(18).margin({ left: 10 })
+        .onClick((): void => { this.showSearch = !this.showSearch; })
+      Text(!this.isFav ? "☆" : "★").fontSize(20).margin({ left: 10 })
+        .fontColor(this.isFav ? "#FFD700" : tcSecondary(this.isDark))
+        .onClick((): void => { this.toggleFav(); })
+      Text("⚙️").fontSize(18).margin({ left: 10 })
+        .onClick((): void => {
+          this.getUIContext().getRouter().pushUrl({ url: "pages/Settings" });
+        })
+      // 刷新按钮
+      Text("🔄").fontSize(16).margin({ left: 10 })
+        .onClick((): void => { this.loadW(this.city); })
+    }.width("100%").padding({ top: 36, bottom: 16 })
+  }
+
+  /** 主温度 + 天气图标大卡片 */
+  @Builder mainTempCard() {
+    Column() {
+      // 天气图标
+      Text(this.weatherIcon).fontSize(72)
+      // 天气描述
+      Text(this.weatherDesc).fontSize(20).fontWeight(FontWeight.Medium)
+        .fontColor(tcSecondary(this.isDark)).margin({ top: 8 })
+      // 当前温度
+      Text(convertTempStr(this.temp, this.tempUnit) + tempUnitLabel(this.tempUnit))
+        .fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+        .lineHeight(80).margin({ top: 4 })
+      // 体感温度
+      Text($r("app.string.feels_like") + " "
+        + convertTempStr(this.feelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
+        .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
+    }
+    .width("100%").padding(30).alignItems(HorizontalAlign.Center)
+    .backgroundColor(cardMain(this.isDark)).backdropBlur(24)
+    .border({ width: 0.5, color: cardBorder(this.isDark) }).borderRadius(32)
+    .shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 })
+  }
+
+  /** 湿度 + 风力详细卡片 */
+  @Builder detailCards() {
+    Row() {
+      // 湿度
+      Column() {
+        Text("💧").fontSize(22)
+        Text($r("app.string.humidity")).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+        Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold)
+          .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
+      }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+
+      // 分隔
+      Column().width(0.5).height(40).backgroundColor(cardBorderSub(this.isDark))
+
+      // 风力
+      Column() {
+        Text("🌬️").fontSize(22)
+        Text($r("app.string.wind")).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+        Text((this.windScale.length > 0 ? this.windScale + "级" : this.windSpeed))
+          .fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
+        Text(this.windDir).fontSize(12).fontColor(tcTertiary(this.isDark))
+      }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+
+      // 分隔
+      Column().width(0.5).height(40).backgroundColor(cardBorderSub(this.isDark))
+
+      // UV / 空气质量
+      Column() {
+        Text("☀️").fontSize(22)
+        Text("UV").fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+        Text(this.aqi !== "--" ? this.aqi : "-").fontSize(20).fontWeight(FontWeight.Bold)
+          .fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
+      }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+    }
+    .width("100%").padding(20).margin({ top: 16 })
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
+    .shadow({ radius: 4, color: cardShadowColor(this.isDark), offsetY: 1 })
+  }
+
+  /** 逐小时预报 - 横向滚动列表 */
+  @Builder hourlyForecast() {
+    Column() {
+      Row() {
+        Text("⏰ " + $r("app.string.last_update")).fontSize(14).fontColor(tcTertiary(this.isDark)).letterSpacing(2)
+        Blank()
+        if (this.lastUpdated.length > 0) {
+          Text(this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark))
+        }
+      }.width("100%").margin({ bottom: 12 })
+
+      List({ space: 10 }) {
+        ForEach(this.hourly, (h: HourlyForecast): void => {
+          ListItem() {
+            Column() {
+              Text(timeLabel(h.time)).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ bottom: 6 })
+              Text(String(h.weatherIcon)).fontSize(22).margin({ bottom: 4 })
+              Text(convertTempStr(h.temp, this.tempUnit) + "°")
+                .fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+              if (h.precipProb !== "--" && h.precipProb !== "") {
+                Text(h.precipProb + "%").fontSize(10).fontColor(accentBlue).margin({ top: 4 })
+              }
+            }
+            .width(72).padding({ top: 14, bottom: 12 }).borderRadius(22)
+            .backgroundColor(cardAccent(this.isDark)).backdropBlur(18)
+            .border({ width: 0.5, color: cardBorderSub(this.isDark) })
+            .onClick((): void => {
+              this.popTime = h.time; this.popTemp = h.temp; this.popFeelsLike = h.feelsLike;
+              this.popHumidity = h.humidity; this.popWindDir = h.windDir;
+              this.popWindScale = h.windScale; this.popWindSpeed = h.windSpeed;
+              this.popPrecipProb = h.precipProb; this.popPrecip = h.precip;
+              this.popPressure = h.pressure; this.popUvIndex = h.uvIndex;
+              this.popWeatherIcon = h.weatherIcon; this.popWeatherDesc = h.weatherDesc;
+              this.showHourlyPop = true;
+            })
+          }
+        }, (h: HourlyForecast): string => h.time)
+      }
+      .listDirection(Axis.Horizontal).width("100%")
+      .edgeEffect(EdgeEffect.Spring).scrollBar(BarState.Off)
+    }
+    .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark) })
+    .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
+  }
+
+  /** 未来天气列表 */
+  @Builder dailyForecast() {
+    Column() {
+      Text("📅 " + $r("app.string.weather_tips_title"))
+        .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ bottom: 12 }).width("100%").letterSpacing(2)
+
+      ForEach(this.daily, (d: DailyForecast): void => {
+        Row() {
+          Text(d.dayOfWeek).fontSize(15).fontColor(tcPrimary(this.isDark)).width(44)
+          Text(d.weatherIcon).fontSize(20).margin({ left: 6 }).width(28).textAlign(TextAlign.Center)
+          Text(d.weatherDesc).fontSize(14).fontColor(tcSecondary(this.isDark))
+            .width(50).textAlign(TextAlign.Center).margin({ left: 4 })
+          Blank()
+          Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14)
+            .fontColor(tcTertiary(this.isDark)).margin({ right: 8 })
+          // 温度条
+          Row() {
+            Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4)
+              .borderRadius(2).backgroundColor("#7BA4FD")
+              .margin({ left: this.barOffset(d.minTemp) })
+          }.width(80).height(4).backgroundColor(cardFrost(this.isDark)).borderRadius(2).margin({ right: 8 })
+          Text(convertTempStr(d.maxTemp, this.tempUnit) + "°").fontSize(14)
+            .fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width(36).textAlign(TextAlign.End)
+          Text("›").fontSize(18).fontColor(tcMuted(this.isDark)).margin({ left: 4 })
+        }
+        .width("100%").padding({ top: 10, bottom: 10 }).borderRadius(16)
+        .onClick((): void => {
+          this.getUIContext().getRouter().pushUrl({
+            url: "pages/Detail",
+            params: {
+              date: d.date, dayOfWeek: d.dayOfWeek, weatherIcon: d.weatherIcon,
+              weatherDesc: d.weatherDesc, maxTemp: d.maxTemp, minTemp: d.minTemp,
+              chanceOfRain: d.chanceOfRain
+            }
+          });
+        })
+      }, (d: DailyForecast): string => d.date)
+    }
+    .width("100%").padding(16).margin({ top: 16 }).borderRadius(28)
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark) })
+    .shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 })
+  }
+
+  /** 更新时间底部 */
+  @Builder updateFooter() {
+    Text($r("app.string.last_update") + " " + this.lastUpdated)
+      .fontSize(12).fontColor(tcMuted(this.isDark)).width("100%").textAlign(TextAlign.Center)
+      .margin({ top: 12 })
+  }
+
+  /** 加载骨架屏 */
+  @Builder skeletonView() {
+    Column() {
+      // 顶部骨架
+      Row() {
+        Column().width(80).height(22).borderRadius(11)
+          .backgroundColor("rgba(255,255,255,0.10)")
+        Blank()
+        Row() {
+          ForEach([1, 2, 3, 4, 5], (): void => {
+            Column().width(24).height(24).borderRadius(12)
+              .backgroundColor(cardFrost(this.isDark)).margin({ left: 10 })
+          })
+        }
+      }.width("100%").padding({ top: 36, bottom: 16, left: 8, right: 8 })
+
+      // 主卡片骨架
+      Column() {
+        Column().width(72).height(72).borderRadius(36)
+          .backgroundColor("rgba(255,255,255,0.10)").margin({ top: 30 })
+        Column().width(140).height(56).borderRadius(28)
+          .backgroundColor(cardFrost(this.isDark)).margin({ top: 12 })
+        Column().width(100).height(18).borderRadius(9)
+          .backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
+      }.width("100%").alignItems(HorizontalAlign.Center)
+
+      // 详情骨架
+      Row() {
+        ForEach([1, 2], (): void => {
+          Column() {
+            Column().width(24).height(24).borderRadius(12)
+              .backgroundColor(cardFrost(this.isDark))
+            Column().width(40).height(10).borderRadius(5)
+              .backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
+            Column().width(56).height(20).borderRadius(10)
+              .backgroundColor(cardFrost(this.isDark)).margin({ top: 6 })
+          }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+        })
+      }
+      .width("100%").padding(20).borderRadius(28)
+      .backgroundColor(cardFrost(this.isDark)).margin({ top: 16 })
+      .shadow({ radius: 6, color: "rgba(64,80,110,0.05)", offsetY: 1 })
+    }
+    .width("100%").padding({ left: 20, right: 20 })
+  }
+
+  /** 错误提示条 */
+  @Builder errorBanner() {
+    Column() {
+      Text(this.error).fontSize(15).fontColor("#FF6B6B").textAlign(TextAlign.Center)
+        .margin({ top: 20, bottom: 10 }).width("100%")
+      Button("🔄 " + $r("app.string.back"))
+        .fontSize(14).height(40).borderRadius(20)
+        .backgroundColor(cardMain(this.isDark)).fontColor(tcPrimary(this.isDark))
+        .onClick((): void => { this.loadW(this.city); })
+    }
+    .width("100%").padding(20).margin({ top: 30 })
+    .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18)
+    .border({ width: 0.5, color: cardBorderSub(this.isDark) }).borderRadius(24)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 搜索面板 */
+  @Builder searchPanel() {
+    Column() {
+      Row() {
+        TextInput({ placeholder: $r('app.string.search_city_hint') })
+          .height(44).layoutWeight(1).borderRadius(22)
+          .backgroundColor(cardMain(this.isDark)).backdropBlur(18)
+          .padding({ left: 16 }).fontColor(tcPrimary(this.isDark))
+          .placeholderColor(tcTertiary(this.isDark))
+          .onChange((val: string): void => { this.searchText = val; })
+          .onSubmit((): void => {
+            let q: string = cleanCityName(this.searchText.trim());
+            if (q.length > 0) {
+              this.showSearch = false;
+              this.loadW(q);
+            }
+          })
+        Text(" ✕").fontSize(20).fontColor(tcTertiary(this.isDark)).margin({ left: 12 })
+          .onClick((): void => { this.showSearch = false; })
+      }.width("100%").margin({ top: 28 })
+
+      if (this.searchHistory.length > 0) {
+        Text($r('app.string.search_history')).fontSize(13).fontColor(tcTertiary(this.isDark))
+          .width("100%").margin({ top: 16, bottom: 8 })
+        ForEach(this.searchHistory, (city: string): void => {
+          Text(city).fontSize(15).fontColor(tcSecondary(this.isDark))
+            .padding({ top: 8, bottom: 8 }).width("100%")
+            .onClick((): void => {
+              this.searchText = city;
+              this.showSearch = false;
+              this.loadW(city);
+            })
+        }, (city: string): string => city)
+      }
+    }
+    .width("100%").height("100%").padding(20)
+    .backgroundColor(cardAccent(this.isDark)).backdropBlur(24)
+  }
+
+  /** 逐小时详情弹窗 */
+  @Builder hourlyPopup() {
+    Column() {
+      Column() {
+        Row() {
+          Text(this.popWeatherIcon).fontSize(36).margin({ right: 10 })
+          Column() {
+            Text(this.popWeatherDesc).fontSize(18).fontWeight(FontWeight.Bold)
+              .fontColor(tcPrimary(this.isDark))
+            Text(this.popTime.length >= 16
+              ? this.popTime.substring(11, 16) + " " + this.popTime.substring(0, 10)
+              : this.popTime)
+              .fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 2 })
+          }.alignItems(HorizontalAlign.Start)
+          Blank()
+          Text("✕").fontSize(22).fontColor(tcTertiary(this.isDark)).width(32).height(32)
+            .textAlign(TextAlign.Center)
+            .onClick((): void => { this.showHourlyPop = false; })
+        }.width("100%").margin({ bottom: 16 })
+
+        Text(convertTempStr(this.popTemp, this.tempUnit) + tempUnitLabel(this.tempUnit))
+          .fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+          .width("100%").textAlign(TextAlign.Center).margin({ bottom: 16 })
+
+        // 三列详情
+        Row() {
+          this.detailItem("💧", $r("app.string.humidity"), this.popHumidity + "%")
+          this.detailItem("🌬️", $r("app.string.wind"),
+            this.popWindScale.length > 0 ? this.popWindScale : this.popWindSpeed)
+          this.detailItem("☀️", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-")
+        }.width("100%").padding(12).borderRadius(16)
+          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
+
+        Row() {
+          this.detailItem("🌧️", $r("app.string.precip_prob"),
+            (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%")
+          this.detailItem("💧", $r("app.string.precip_amount"),
+            (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm")
+          this.detailItem("🌫️", $r("app.string.pressure"),
+            (this.popPressure !== "--" ? this.popPressure : "-") + "hPa")
+        }.width("100%").padding(12).borderRadius(16)
+          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
+
+        Row() {
+          this.detailItem("🌡️", $r("app.string.feels_like"),
+            convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit))
+        }.width("100%").padding(12).borderRadius(16)
+          .backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 12 })
+
+        Button($r("app.string.close")).width("100%").height(44).borderRadius(22)
+          .backgroundColor(cardBg(this.isDark)).fontColor(tcPrimary(this.isDark))
+          .fontWeight(FontWeight.Bold)
+          .onClick((): void => { this.showHourlyPop = false; })
+      }.width("100%").padding(24).borderRadius(32).backgroundColor(cardFrost(this.isDark))
+    }
+    .width("100%").height("100%").padding(24).justifyContent(FlexAlign.Center)
+    .backgroundColor("rgba(0,0,0,0.5)")
+    .onClick((): void => { this.showHourlyPop = false; })
+  }
+
+  /** 通用详情小格子 */
   @Builder detailItem(icon: string, label: ResourceStr, value: string) {
-    Column() { Text(icon).fontSize(18); Text(label).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 }); Text(value).fontSize(15).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 2 }) }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+    Column() {
+      Text(icon).fontSize(18)
+      Text(label).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
+      Text(value).fontSize(15).fontWeight(FontWeight.Bold)
+        .fontColor(tcPrimary(this.isDark)).margin({ top: 2 })
+    }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+  }
+
+  // ==================== 工具方法 ====================
+
+  /** 收藏/取消收藏 */
+  toggleFav(): void {
+    this.isFav = !this.isFav;
+    try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      prefManager.init(ctx).then((): void => {
+        prefManager.toggleFavorite(this.city).then((list: string[]): void => {
+          this.favorites = list;
+        }).catch((): void => {});
+      }).catch((): void => {});
+    } catch (_e) {}
+  }
+
+  /** 定位功能（占位） */
+  locate(): void {
+    console.info("[Location] locate requested");
+  }
+
+  /** 温度条偏移量 */
+  barOffset(temp: string): number {
+    let t: number = Number(temp);
+    if (isNaN(t)) { return 0; }
+    return Math.max(0, (t + 10) * 1.2);
+  }
+
+  /** 温度条宽度 */
+  barWidth(minTemp: string, maxTemp: string): number {
+    let min: number = Number(minTemp);
+    let max: number = Number(maxTemp);
+    if (isNaN(min) || isNaN(max)) { return 40; }
+    let diff: number = max - min;
+    return Math.max(20, Math.min(80, diff * 4));
   }
 
   pageTransition() {
-    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(1)
-    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(0)
-    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(1)
-    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
+    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(1)
+    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(0)
+    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(1)
+    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(0)
   }
 }
 
+// ==================== 全局工具函数 ====================
+
+/** 格式化时间标签 */
 function timeLabel(t: string): string {
   if (t.length >= 16) { return t.substring(11, 16); }
   if (t.length >= 5) { return t.substring(0, 5); }
   return t;
 }
 
+/** 根据日夜和天气返回渐变颜色数组 */
 function bgCol(isNight: boolean, weatherDesc: string): Array<[ResourceColor, number]> {
   let wt: WeatherType = getWeatherType(weatherDesc);
   if (isNight) { return nightGradient(wt); }
   return dayGradient(wt);
 }
 
+/** 星空位置定义 */
 interface StarPos {
   x: string;
   y: string;
@@ -636,15 +890,3 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
-
-
-
-
-
-
-
-
-
-
-
-

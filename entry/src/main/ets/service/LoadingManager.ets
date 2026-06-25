@@ -1,6 +1,6 @@
-﻿/**
- * 全局Loading管理器
- * 使用AppStorage维护全局状态，支持嵌套计数防冲突
+/**
+ * LoadingManager — 全局加载管理器
+ * 使用 AppStorage 维护全局状态，支持嵌套计数防冲突
  * 对外只暴露 show() / hide() 两个方法
  */
 const LOADING_KEY: string = "globalLoading";
@@ -12,7 +12,7 @@ class LoadingManager {
   show(): void {
     this.counter++;
     if (this.counter === 1) {
-      AppStorage.setOrCreate<boolean>(LOADING_KEY, true);
+      AppStorage.set<boolean>(LOADING_KEY, true);
     }
     this.resetSafetyTimer();
   }
@@ -20,14 +20,15 @@ class LoadingManager {
   hide(): void {
     this.counter = Math.max(0, this.counter - 1);
     if (this.counter === 0) {
-      AppStorage.setOrCreate<boolean>(LOADING_KEY, false);
+      AppStorage.set<boolean>(LOADING_KEY, false);
       this.clearSafetyTimer();
     }
   }
 
+  /** 紧急重置（异常情况下使用） */
   reset(): void {
     this.counter = 0;
-    AppStorage.setOrCreate<boolean>(LOADING_KEY, false);
+    AppStorage.set<boolean>(LOADING_KEY, false);
     this.clearSafetyTimer();
   }
 
@@ -35,9 +36,9 @@ class LoadingManager {
     this.clearSafetyTimer();
     this.safetyTimer = setTimeout((): void => {
       if (this.counter > 0) {
-        console.warn("LoadingManager safety reset after 30s timeout, counter=" + this.counter);
+        console.warn("[Loading] safety reset after 30s, counter=" + this.counter);
         this.counter = 0;
-        AppStorage.setOrCreate<boolean>(LOADING_KEY, false);
+        AppStorage.set<boolean>(LOADING_KEY, false);
       }
     }, 30000);
   }
