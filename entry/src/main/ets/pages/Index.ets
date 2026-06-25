@@ -397,6 +397,15 @@ struct Index {
           colors: bgCol(this.isNight, this.isDark, this.weatherDesc)
         })
 
+      // 月晕光效（晴朗/少云/多云夜间）
+      if (this.isNight && (this.weatherDesc.indexOf("晴") >= 0 || this.weatherDesc.indexOf("少云") >= 0 || this.weatherDesc.indexOf("多云") >= 0)) {
+        Column().width(200).height(200).borderRadius(100)
+          .backgroundColor("rgba(120,180,255,0.04)")
+          .position({ x: "72%", y: "14%" }).blur(50)
+        Column().width(120).height(120).borderRadius(60)
+          .backgroundColor("rgba(160,200,255,0.03)")
+          .position({ x: "74%", y: "16%" }).blur(30)
+      }
       // 夜间星空粒子（晴/多云时显示）
       if (this.isNight && this.rainSnowType === "none") {
         Column() {

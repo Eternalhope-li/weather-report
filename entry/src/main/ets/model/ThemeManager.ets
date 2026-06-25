@@ -93,28 +93,26 @@ export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
 //  夜间渐变
 // ============================================================
 export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
-  // 真正深色模式：近黑背景，卡片(30-38)在其上清晰浮起
+  // 深空静夜风：靛蓝→深紫→藏青 分层渐变
   switch (wt) {
     case WeatherType.SUNNY:
-      return [["#0C0E12", 0], ["#0F1218", 0.3], ["#12161E", 0.6], ["#161A24", 1]];
+      return [["#0A0E1A", 0], ["#0E1428", 0.25], ["#121A34", 0.55], ["#162044", 0.8], ["#1A2648", 1]];
     case WeatherType.CLOUDY:
-      return [["#0D0F14", 0], ["#10141A", 0.3], ["#14181E", 0.6], ["#181C26", 1]];
+      return [["#0C1020", 0], ["#10162E", 0.3], ["#141C38", 0.6], ["#182240", 1]];
     case WeatherType.OVERCAST:
-      return [["#0E1016", 0], ["#12161C", 0.4], ["#161A22", 0.7], ["#1A1E28", 1]];
+      return [["#0E1224", 0], ["#121830", 0.4], ["#161E3A", 0.7], ["#1A2440", 1]];
     case WeatherType.LIGHT_RAIN:
-      return [["#0B0D12", 0], ["#0E1218", 0.3], ["#12161C", 0.6], ["#161A22", 1]];
+      return [["#080C18", 0], ["#0C1022", 0.3], ["#10162E", 0.6], ["#141C36", 1]];
     case WeatherType.HEAVY_RAIN:
-      return [["#090B0E", 0], ["#0C1014", 0.3], ["#0F1318", 0.6], ["#13171E", 1]];
+      return [["#060A12", 0], ["#080C1A", 0.3], ["#0C1022", 0.6], ["#10162A", 1]];
     case WeatherType.SNOW:
-      return [["#0E1016", 0], ["#12161C", 0.3], ["#161A22", 0.6], ["#1A1E28", 1]];
+      return [["#0E1226", 0], ["#121A32", 0.3], ["#182240", 0.6], ["#1E2A4A", 1]];
     case WeatherType.FOG:
-      return [["#101218", 0], ["#14181E", 0.4], ["#181C24", 0.7], ["#1C202A", 1]];
+      return [["#10142A", 0], ["#161C38", 0.4], ["#1A2242", 0.7], ["#1E2848", 1]];
     default:
-      return [["#0C0E12", 0], ["#10141A", 0.5], ["#181C26", 1]];
+      return [["#0A0E1A", 0], ["#10162E", 0.5], ["#182240", 1]];
   }
 }
-
-// ---- 兼容函数别名 ----
 export function bgGradient(isNight: boolean, weatherBg: string): Array<[ResourceColor, number]> {
   let wt: WeatherType = getWeatherType(weatherBg);
   if (isNight) { return nightGradient(wt); }
