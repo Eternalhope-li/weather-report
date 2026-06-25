@@ -1,6 +1,6 @@
 ﻿import { convertTempStr, tempUnitLabel } from "../model/TemperatureConverter";
 import {
-  bgGradient, cardAccent, cardMain, cardSecondary, cardFrost,
+  bgGradient, cardAccent, cardMain, cardSecondary,
   cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted
 } from "../model/ThemeManager";

@@ -1,6 +1,6 @@
 ﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
-import { cardBg, cardBgStrong, cardFrost, cardMain, cardSecondary, cardAccent, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
+import { cardMain, cardSecondary, cardAccent, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
 import { RainSnowEffect } from "../components/RainSnowEffect";
 import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
@@ -425,7 +425,7 @@ struct Index {
       // 主内容区域（可纵向滚动 + 下拉刷新；弹窗打开时隐藏以隔离渲染）
       if (!this.showHourlyPop) {
       Refresh({ refreshing: $$this.isRefreshing })
-      .showRefreshProgress(false)
+
         Scroll() {
           Column() {
           // 顶部导航栏：城市名 + 功能按钮

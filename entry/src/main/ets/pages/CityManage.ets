@@ -2,9 +2,9 @@
 import { setPendingCity } from "../model/CitySwitch";
 import { cleanCityName } from "../model/TemperatureConverter";
 import {
-  bgGradient, cardMain, cardAccent, cardSecondary, cardFrost,
+  bgGradient, cardMain, cardAccent, cardSecondary,
   cardBorder, cardBorderSub,
-  tcPrimary, tcSecondary, tcTertiary, tcMuted
+  tcPrimary, tcSecondary, tcTertiary
 } from "../model/ThemeManager";
 import loadingManager from "../service/LoadingManager";
 import { LoadingComponent } from "../components/LoadingComponent";

@@ -1,6 +1,6 @@
 ﻿import prefManager from "../service/PreferenceManager";
 import {
-  bgGradient, cardAccent, cardFrost, cardMain, cardSecondary,
+  bgGradient, cardFrost, cardSecondary,
   cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary
 } from "../model/ThemeManager";
