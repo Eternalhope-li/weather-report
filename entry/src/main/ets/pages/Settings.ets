@@ -1,6 +1,6 @@
-﻿import router from '@ohos.router';
+import router from '@ohos.router';
 import prefManager from '../service/PreferenceManager';
-import { bgGradient, cardBg, cardBgStrong, cardFrost, accentBlue } from '../model/ThemeManager';
+import { bgGradient, cardBg, cardAccent, cardBgStrong, cardFrost, cardSecondary, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary } from '../model/ThemeManager';
 import loadingManager from '../service/LoadingManager';
 import { LoadingComponent } from '../components/LoadingComponent';
 
@@ -46,7 +46,7 @@ struct Settings {
         Row() {
           Text('\u2190 ').fontSize(22).fontColor('rgba(255,255,255,0.8)')
             .onClick((): void => { this.getUIContext().getRouter().back(); })
-          Text($r('app.string.settings')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ left: 8 })
+          Text($r('app.string.settings')).fontSize(22).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ left: 8 })
           Blank()
         }.width('100%').height(56).padding({ left: 20, right: 20 })
 
@@ -54,33 +54,33 @@ struct Settings {
           Column() {
             // ---- 温度单位 ----
             Row() {
-              Text($r('app.string.temp_unit')).fontSize(16).fontColor(Color.White)
+              Text($r('app.string.temp_unit')).fontSize(16).fontColor(tcPrimary(this.isDark))
               Blank()
               Text('\u2103')
                 .fontSize(26).fontWeight(this.tempUnit === 'C' ? FontWeight.Bold : FontWeight.Normal)
-                .fontColor(this.tempUnit === 'C' ? Color.White : 'rgba(255,255,255,0.35)')
+                .fontColor(this.tempUnit === 'C' ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
                 .width(56).height(44).textAlign(TextAlign.Center).lineHeight(44)
-                .backgroundColor(this.tempUnit === 'C' ? 'rgba(123,164,253,0.4)' : 'rgba(255,255,255,0.06)')
+                .backgroundColor(this.tempUnit === 'C' ? 'rgba(123,164,253,0.4)' : cardFrost(this.isDark))
                 .borderRadius(22).margin({ right: 6 })
                 .animation({ duration: 250, curve: Curve.EaseOut })
                 .onClick((): void => { this.tempUnit = 'C'; prefManager.saveTempUnit('C'); })
               Text('\u2109')
                 .fontSize(26).fontWeight(this.tempUnit === 'F' ? FontWeight.Bold : FontWeight.Normal)
-                .fontColor(this.tempUnit === 'F' ? Color.White : 'rgba(255,255,255,0.35)')
+                .fontColor(this.tempUnit === 'F' ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
                 .width(56).height(44).textAlign(TextAlign.Center).lineHeight(44)
-                .backgroundColor(this.tempUnit === 'F' ? 'rgba(123,164,253,0.4)' : 'rgba(255,255,255,0.06)')
+                .backgroundColor(this.tempUnit === 'F' ? 'rgba(123,164,253,0.4)' : cardFrost(this.isDark))
                 .borderRadius(22).margin({ left: 6 })
                 .animation({ duration: 250, curve: Curve.EaseOut })
                 .onClick((): void => { this.tempUnit = 'F'; prefManager.saveTempUnit('F'); })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardFrost(this.isDark)).borderRadius(20)
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
             // ---- 自动刷新 ----
             Column() {
               Row() {
-                Text($r('app.string.auto_refresh')).fontSize(16).fontColor(Color.White)
+                Text($r('app.string.auto_refresh')).fontSize(16).fontColor(tcPrimary(this.isDark))
                 Blank()
                 Row() {
                   Text($r('app.string.every_minutes')).fontSize(14).fontColor('#7BA4FD')
@@ -92,10 +92,10 @@ struct Settings {
               Row() {
                 ForEach([15, 30, 60], (val: number): void => {
                   Row() {
-                    Text(String(val)).fontSize(14).fontColor(Number(this.refreshInterval) === val ? Color.White : 'rgba(255,255,255,0.5)')
-                    Text($r('app.string.min_abbr')).fontSize(14).fontColor(Number(this.refreshInterval) === val ? Color.White : 'rgba(255,255,255,0.5)')
+                    Text(String(val)).fontSize(14).fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
+                    Text($r('app.string.min_abbr')).fontSize(14).fontColor(Number(this.refreshInterval) === val ? tcPrimary(this.isDark) : tcTertiary(this.isDark))
                   }.padding({ top: 8, bottom: 8, left: 22, right: 22 })
-                  .backgroundColor(Number(this.refreshInterval) === val ? 'rgba(123,164,253,0.3)' : 'rgba(255,255,255,0.08)')
+                  .backgroundColor(Number(this.refreshInterval) === val ? 'rgba(123,164,253,0.3)' : cardBgStrong(this.isDark))
                   .borderRadius(14)
                   .margin({ right: 10 })
                   .onClick((): void => {
@@ -105,14 +105,14 @@ struct Settings {
                 }, (val: number): string => String(val))
                 Blank()
               }.width('100%')
-            }.width('100%').padding(20).backgroundColor(cardFrost(this.isDark)).borderRadius(20)
+            }.width('100%').padding(20).backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
             // ---- 深色模式 ----
             Row() {
               Column() {
-                Text($r('app.string.dark_mode')).fontSize(16).fontColor(Color.White)
+                Text($r('app.string.dark_mode')).fontSize(16).fontColor(tcPrimary(this.isDark))
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).justifyContent(FlexAlign.Center)
               Toggle({ type: ToggleType.Switch, isOn: this.darkMode === 'true' })
                 .onChange((isOn: boolean): void => {
@@ -121,24 +121,24 @@ struct Settings {
                   prefManager.saveDarkMode(this.darkMode);
                 })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardFrost(this.isDark)).borderRadius(20)
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
             // ---- 关于（修复 [object Object] 问题）----
             Row() {
-              Text($r('app.string.about')).fontSize(16).fontColor(Color.White)
+              Text($r('app.string.about')).fontSize(16).fontColor(tcPrimary(this.isDark))
               Blank()
-              Text($r('app.string.app_name')).fontSize(14).fontColor('rgba(255,255,255,0.35)').margin({ right: 4 })
-              Text($r('app.string.version')).fontSize(14).fontColor('rgba(255,255,255,0.35)')
+              Text($r('app.string.app_name')).fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ right: 4 })
+              Text($r('app.string.version')).fontSize(14).fontColor(tcTertiary(this.isDark))
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardFrost(this.isDark)).borderRadius(20)
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(12)
 
             // ---- 清除缓存 ----
             Row() {
-              Text($r('app.string.clear_cache')).fontSize(16).fontColor(Color.White)
+              Text($r('app.string.clear_cache')).fontSize(16).fontColor(tcPrimary(this.isDark))
               Blank()
               Text($r('app.string.click_to_clear'))
                 .fontSize(14).fontColor('rgba(255,120,120,0.8)')
@@ -165,7 +165,7 @@ struct Settings {
                   });
                 })
             }.width('100%').height(56).padding({ left: 20, right: 20 })
-              .backgroundColor(cardFrost(this.isDark)).borderRadius(20)
+              .backgroundColor(cardSecondary(this.isDark)).borderRadius(20).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
           }.width('100%')
         }.scrollBar(BarState.Off).width('100%').layoutWeight(1)
@@ -177,10 +177,11 @@ struct Settings {
   }
 
   pageTransition() {
-    PageTransitionEnter({ type: RouteType.Push, duration: 350, curve: Curve.EaseOut }).slide(SlideEffect.Right)
-    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseIn }).slide(SlideEffect.Left)
-    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseOut }).slide(SlideEffect.Left)
-    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseIn }).slide(SlideEffect.Right)
+    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(1)
+    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(0)
+    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(1)
+    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
 

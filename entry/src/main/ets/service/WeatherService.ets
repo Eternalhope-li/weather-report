@@ -54,9 +54,23 @@ interface AmapGeoResponse {
   info?: string;
   geocodes?: AmapGeoItem[];
 }
+interface JuheToday {
+  temperature?: string;
+  weather?: string;
+  humidity?: string;
+  wind?: string;
+  weather_icon?: string;
+}
+interface JuheFutureDay {
+  date?: string;
+  high?: string;
+  low?: string;
+  weather?: string;
+  weather_icon?: string;
+}
 interface JuheResult {
-  today?: Record<string, string>;
-  future?: Record<string, string>[];
+  today?: JuheToday;
+  future?: JuheFutureDay[];
 }
 interface JuheRoot { result?: JuheResult; }
 interface JuheDay { date?: string; high?: string; low?: string; weather?: string; weather_icon?: string; }
@@ -422,16 +436,16 @@ class WeatherService {
       let json: JuheRoot = JSON.parse(raw) as JuheRoot;
       let resObj = json.result;
       if (resObj !== undefined) {
-        let today: Record<string, string> = resObj.today ?? {};
-        let futureArr: Record<string, string>[] = resObj.future ?? [];
-        result.current.temp = safeStr(today.temperature, "--");
-        result.current.weatherDesc = safeStr(today.weather, "--");
-        result.current.humidity = safeStr(today.humidity, "--");
-        result.current.windSpeed = safeStr(today.wind, "--");
-        result.current.weatherIcon = qIconEmoji(safeStr(today.weather_icon, ""));
+        let today: JuheToday | undefined = resObj.today;
+        let futureArr: JuheFutureDay[] = resObj.future ?? [];
+        result.current.temp = safeStr(today?.temperature, "--");
+        result.current.weatherDesc = safeStr(today?.weather, "--");
+        result.current.humidity = safeStr(today?.humidity, "--");
+        result.current.windSpeed = safeStr(today?.wind, "--");
+        result.current.weatherIcon = qIconEmoji(safeStr(today?.weather_icon, ""));
         result.daily = [];
         for (let i: number = 0; i < futureArr.length; i++) {
-          let f: JuheDay = futureArr[i] as JuheDay;
+          let f: JuheFutureDay = futureArr[i];
           result.daily.push({
             date: safeStr(f.date, ""),
             dayOfWeek: getDayOfWeek(safeStr(f.date, ""), i),

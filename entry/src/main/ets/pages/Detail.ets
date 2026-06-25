@@ -1,7 +1,9 @@
-﻿import router from '@ohos.router';
+import router from '@ohos.router';
 import { convertTempStr, tempUnitLabel } from '../model/TemperatureConverter';
-import { bgGradient, cardBg, cardBgStrong, cardFrost } from '../model/ThemeManager';
+import { bgGradient, cardBg, cardAccent, cardFrost, cardSecondary, cardBorder, cardBorderSub, tcPrimary, tcSecondary, tcTertiary, tcMuted } from '../model/ThemeManager';
 import prefManager from '../service/PreferenceManager';
+import loadingManager from '../service/LoadingManager';
+import { LoadingComponent } from '../components/LoadingComponent';
 
 @Entry
 @Component
@@ -57,9 +59,9 @@ struct Detail {
       Column() {
         // Back button
         Row() {
-          Text('\u2190 ').fontSize(16).fontColor('rgba(255,255,255,0.7)')
+          Text('\u2190 ').fontSize(16).fontColor(tcSecondary(this.isDark))
             .onClick((): void => { this.getUIContext().getRouter().back(); })
-          Text($r('app.string.back')).fontSize(16).fontColor('rgba(255,255,255,0.7)')
+          Text($r('app.string.back')).fontSize(16).fontColor(tcSecondary(this.isDark))
           Blank()
         }.width('100%').padding({ top: 28, left: 8 })
 
@@ -67,61 +69,61 @@ struct Detail {
           Column() {
             // Main card
             Column() {
-              Text(this.dayOfWeek).fontSize(18).fontColor('rgba(255,255,255,0.6)').letterSpacing(2)
-              Text(this.date).fontSize(14).fontColor('rgba(255,255,255,0.35)').margin({ top: 4 })
+              Text(this.dayOfWeek).fontSize(18).fontColor(tcSecondary(this.isDark)).letterSpacing(2)
+              Text(this.date).fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
 
               Text(this.weatherIcon).fontSize(72).margin({ top: 20 })
 
-              Text(this.weatherDesc).fontSize(22).fontColor(Color.White)
+              Text(this.weatherDesc).fontSize(22).fontColor(tcPrimary(this.isDark))
                 .letterSpacing(3).margin({ top: 10 })
 
               // Temp range
               Row() {
-                Text(convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(28).fontColor('rgba(255,255,255,0.5)')
-                Text(' / ').fontSize(28).fontColor('rgba(255,255,255,0.2)')
-                Text(convertTempStr(this.maxTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(36).fontWeight(FontWeight.Bold).fontColor(Color.White)
+                Text(convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(28).fontColor(tcTertiary(this.isDark))
+                Text(' / ').fontSize(28).fontColor(tcMuted(this.isDark))
+                Text(convertTempStr(this.maxTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(36).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
               }.alignItems(VerticalAlign.Center).margin({ top: 16 })
 
               if (this.chanceOfRain.length > 0) {
                 Row() {
                   Text('\uD83C\uDF27\uFE0F').fontSize(16)
                   Text(' ' + $r('app.string.precip_prob') + ' ' + this.chanceOfRain)
-                    .fontSize(14).fontColor('rgba(255,255,255,0.5)')
+                    .fontSize(14).fontColor(tcTertiary(this.isDark))
                 }.margin({ top: 16 })
               } else if (this.minTemp !== '--' && this.maxTemp !== '--') {
                 Text('\u6E29\u5EA6\u8303\u56F4 ' + convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit) + ' ~ ' + convertTempStr(this.maxTemp, this.tempUnit) + tempUnitLabel(this.tempUnit))
-                  .fontSize(14).fontColor('rgba(255,255,255,0.4)').margin({ top: 16 })
+                  .fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ top: 16 })
               }
 
               if (this.minTemp !== '--') {
                 Row() {
                   Column() {
                     Text('\uD83C\uDF21\uFE0F').fontSize(18)
-                    Text($r('app.string.day_high')).fontSize(11).fontColor('rgba(255,255,255,0.4)').margin({ top: 4 })
-                    Text(convertTempStr(this.maxTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(16).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ top: 2 })
+                    Text($r('app.string.day_high')).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
+                    Text(convertTempStr(this.maxTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(16).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 2 })
                   }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
                   Column() {
                     Text('\uD83C\uDF19').fontSize(18)
-                    Text($r('app.string.night_low')).fontSize(11).fontColor('rgba(255,255,255,0.4)').margin({ top: 4 })
-                    Text(convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(16).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ top: 2 })
+                    Text($r('app.string.night_low')).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 })
+                    Text(convertTempStr(this.minTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(16).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 2 })
                   }.alignItems(HorizontalAlign.Center).layoutWeight(1)
                 }.width('100%').padding(14).borderRadius(20)
-                  .backgroundColor(cardFrost(this.isDark)).margin({ top: 16 })
+                  .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) }).margin({ top: 16 })
               }
             }.width('100%').padding(30).borderRadius(32)
-              .backgroundColor(cardBgStrong(this.isDark)).alignItems(HorizontalAlign.Center)
+              .backgroundColor(cardAccent(this.isDark)).alignItems(HorizontalAlign.Center).backdropBlur(24).border({ width: 0.5, color: cardBorder(this.isDark) })
 
             // Extra tips card
             Column() {
               Row() {
                 Text('\uD83D\uDCA1').fontSize(16).margin({ right: 8 })
                 Text($r('app.string.weather_tips_title')).fontSize(15).fontWeight(FontWeight.Bold)
-                  .fontColor('rgba(255,255,255,0.7)')
+                  .fontColor(tcSecondary(this.isDark))
               }.width('100%').margin({ bottom: 10 })
-              Text(this.weatherTip()).fontSize(14).fontColor('rgba(255,255,255,0.5)').width('100%')
+              Text(this.weatherTip()).fontSize(14).fontColor(tcTertiary(this.isDark)).width('100%')
             }.width('100%').padding(16).borderRadius(24).margin({ top: 16 })
-              .backgroundColor(cardFrost(this.isDark))
+              .backgroundColor(cardSecondary(this.isDark)).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
 
             Blank().height(40)
           }.width('100%').padding({ left: 20, right: 20 })
@@ -146,15 +148,16 @@ struct Detail {
   }
 
   pageTransition() {
-    PageTransitionEnter({ type: RouteType.Push, duration: 350, curve: Curve.EaseOut })
-      .slide(SlideEffect.Right)
-    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseIn })
-      .slide(SlideEffect.Left)
-    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseOut })
-      .slide(SlideEffect.Left)
-    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseIn })
-      .slide(SlideEffect.Right)
+    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(1)
+    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(0)
+    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Left).opacity(1)
+    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut })
+      .slide(SlideEffect.Right).opacity(0)
   }
 }
+
 
 

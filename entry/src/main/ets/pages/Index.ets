@@ -1,6 +1,7 @@
-﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
+import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
-import { bgGradient, cardBg, cardBgStrong, cardFrost, accentBlue, textPrimary, textSecondary, textTertiary, textMuted, textPrimaryLight, textSecondaryLight, textTertiaryLight } from "../model/ThemeManager";
+import { cardBg, cardBgStrong, cardFrost, cardMain, cardSecondary, cardAccent, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
+import { RainSnowEffect } from "../components/RainSnowEffect";
 import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
 import router from "@ohos.router";
@@ -30,6 +31,9 @@ struct Index {
   @State loading: boolean = true;
   @State error: string = "";
   @State bg: string = "day";
+  @State isNight: boolean = false;
+  @State weatherType: string = "cloudy";
+  @State rainSnowType: string = "none";
   @State history: string[] = [];
   @State favorites: string[] = [];
   @State searchHistory: string[] = [];
@@ -64,12 +68,42 @@ struct Index {
 
   private refreshTimer: number = -1;
   private lastReqCity: string = "";
+  private storageCity: string = '';
+  private requestSeq: number = 0;
+  private citySwitchPending: boolean = false;
 
   aboutToAppear(): void {
     this.loadSettingsAndStart();
+    this.initDayNight();
   }
 
   onPageShow(): void {
+    // 优先检查 AppStorage 全局城市变更（来自 CityManage）
+    try {
+      let pendingCity: string = AppStorage.get<string>('globalCurrentCity') ?? '';
+      if (pendingCity.length > 0 && pendingCity !== this.city) {
+        console.info("[CitySwitch] onPageShow AppStorage city: " + pendingCity);
+        this.storageCity = pendingCity;
+        this.citySwitchPending = true;
+        AppStorage.set<string>('globalCurrentCity', '');
+        loadingManager.show();
+        this.loadW(pendingCity);
+        return;
+      }
+    } catch (_e) {}
+    try {
+      let params = router.getParams() as Record<string, Object>;
+      if (params !== null && params !== undefined && params.switchCity !== undefined) {
+        let switchTo: string = String(params.switchCity);
+        if (switchTo.length > 0) {
+          console.info("[CitySwitch] onPageShow switch city: " + switchTo);
+          this.storageCity = switchTo;
+          this.citySwitchPending = true;
+          this.loadW(cleanCityName(switchTo));
+          return;
+        }
+      }
+    } catch (_e) {}
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
@@ -78,15 +112,7 @@ struct Index {
           this.refreshInterval = s.refreshInterval; this.setupAutoRefresh();
         }).catch((): void => {});
         this.loadSearchHistory();
-        this.loadLastCity();
       }).catch((): void => {});
-      try {
-        let params = router.getParams() as Record<string, Object>;
-        if (params !== null && params !== undefined && params.switchCity !== undefined) {
-          let switchTo: string = String(params.switchCity);
-          if (switchTo.length > 0) { this.loadW(cleanCityName(switchTo)); }
-        }
-      } catch (_e) {}
     } catch (_e) {}
   }
 
@@ -109,20 +135,6 @@ struct Index {
         this.loadLastCity();
       }).catch((): void => { this.loadLastCity(); });
     } catch (_e) { this.loadLastCity(); }
-  }
-
-  checkRouteParam(): void {
-    try {
-      let params = router.getParams() as Record<string, Object>;
-      if (params !== null && params !== undefined && params.switchCity !== undefined) {
-        let s: string = String(params.switchCity);
-        if (s.length > 0) { this.loadW(cleanCityName(s)); return; }
-      }
-    } catch (_e) {}
-    // 启动时读取上次查看的城市
-    prefManager.getLastCity().then((c: string): void => {
-      this.loadW(c);
-    }).catch((): void => { this.loadW("滨州"); });
   }
 
   loadSearchHistory(): void {
@@ -148,13 +160,21 @@ struct Index {
   async loadW(city: string): Promise<void> {
     let q: string = city.trim();
     if (q.length === 0) { return; }
+    this.requestSeq++;
+    let seq: number = this.requestSeq;
+    console.info("[CitySwitch] loadW #" + seq + " city=\"" + q + "\"");
     this.lastReqCity = q; this.loading = true; this.error = "";
     this.showCachedFirst(q);
     try {
+      let ctx: Context = this.getUIContext().getHostContext()!;
+      await prefManager.init(ctx);
+    } catch (_e) {}
+    try {
       let data: WeatherData = await weatherService.fetchWeather(q);
+      if (seq !== this.requestSeq) { console.info("[CitySwitch] skip stale #" + seq + ", current #" + this.requestSeq); loadingManager.hide(); this.loading = false; return; }
       this.city = data.city;
       if (this.isErrorMsg(data.current.weatherDesc)) {
-        this.error = data.current.weatherDesc; this.loading = false;
+        this.error = data.current.weatherDesc; loadingManager.hide(); this.loading = false;
         return;
       }
       this.applyWeatherData(data);
@@ -168,8 +188,8 @@ struct Index {
       try { prefManager.saveWeatherCache(data.city, JSON.stringify(data)); } catch (_ce) {}
       try { prefManager.addToHistory(data.city).catch((): void => {}); } catch (_he) {}
       try { prefManager.saveLastCity(data.city).catch((): void => {}); } catch (_lc) {}
-    } catch (e) { this.error = "获取天气失败"; this.tryLoadCache(city); }
-    this.loading = false; this.isRefreshing = false;
+    } catch (e) { loadingManager.hide(); this.error = "获取天气失败"; this.tryLoadCache(city); }
+    loadingManager.hide(); this.loading = false; this.isRefreshing = false;
   }
 
   isErrorMsg(desc: string): boolean {
@@ -186,6 +206,10 @@ struct Index {
     this.sunrise = data.current.sunrise; this.sunset = data.current.sunset;
     this.warningTitle = data.warningTitle; this.warningDesc = data.warningDesc;
     this.bg = this.pickBg(data.current.weatherDesc);
+    this.updateDayNight(data.current.sunrise, data.current.sunset);
+    let wt: WeatherType = getWeatherType(data.current.weatherDesc);
+    this.weatherType = wt;
+    this.rainSnowType = particleType(wt);
     let gMin: number = 100; let gMax: number = -100;
     for (let i: number = 0; i < data.daily.length; i++) {
       let d: DailyForecast = data.daily[i];
@@ -209,7 +233,7 @@ struct Index {
     } catch (_ce) {}
   }
 
-  tryLoadCache(city: string): void {
+  tryLoadCache(city: string): void { loadingManager.hide();
     try {
       let ctx: Context = this.getUIContext().getHostContext()!;
       prefManager.init(ctx).then((): void => {
@@ -241,7 +265,32 @@ struct Index {
   }
 
   loadLastCity(): void {
+    if (this.citySwitchPending) { this.citySwitchPending = false; return; }
     prefManager.getLastCity().then((c: string): void => { this.loadW(c); }).catch((): void => { this.loadW("滨州"); });
+  }
+
+  initDayNight(): void {
+    let h: number = new Date().getHours();
+    this.isNight = h >= 19 || h < 6;
+  }
+
+  updateDayNight(sunrise: string, sunset: string): void {
+    try {
+      if (sunrise.length > 3 && sunset.length > 3) {
+        let now: Date = new Date();
+        let nowMin: number = now.getHours() * 60 + now.getMinutes();
+        let srParts: string[] = sunrise.split(":");
+        let ssParts: string[] = sunset.split(":");
+        if (srParts.length >= 2 && ssParts.length >= 2) {
+          let srMin: number = Number(srParts[0]) * 60 + Number(srParts[1]);
+          let ssMin: number = Number(ssParts[0]) * 60 + Number(ssParts[1]);
+          this.isNight = nowMin < srMin || nowMin > ssMin;
+          return;
+        }
+      }
+    } catch (_e) {}
+    let h: number = new Date().getHours();
+    this.isNight = h >= 19 || h < 6;
   }
 
   pickBg(desc: string): string {
@@ -282,10 +331,10 @@ struct Index {
 
   build() {
     Stack() {
-      Column().width("100%").height("100%").linearGradient({ direction: GradientDirection.Bottom, colors: bgCol(this.isDark, this.bg) })
+      Column().width("100%").height("100%").linearGradient({ direction: GradientDirection.Bottom, colors: bgCol(this.isDark || this.isNight, this.weatherDesc) })
 
-      // 夜间星空
-      if (this.bg === "night") {
+      // 夜间星空（晴天/多云显示，雨雪天气隐藏）
+      if (this.isNight && this.rainSnowType === "none") {
         ForEach(starPositions, (s: StarPos): void => {
           Column()
             .width(s.size).height(s.size)
@@ -293,47 +342,49 @@ struct Index {
             .borderRadius(s.size / 2)
             .position({ x: s.x, y: s.y })
             .opacity(s.opacity)
-            .shadow({ radius: s.size, color: "rgba(255,255,255,0.3)" })
+            .shadow({ radius: s.size, color: tcTertiary(this.isDark) })
         }, (s: StarPos): string => s.x + s.y)
       }
+
+      // 雨雪粒子特效（props驱动自动启停）
+      RainSnowEffect({ particleType: this.rainSnowType, density: 1 })
 
       if (this.loading && this.error.length === 0) {
         Column() {
           Row() {
             Column().width(80).height(22).borderRadius(11).backgroundColor("rgba(255,255,255,0.10)")
             Blank()
-            Row() { ForEach([1, 2, 3, 4, 5], (): void => { Column().width(24).height(24).borderRadius(12).backgroundColor("rgba(255,255,255,0.06)").margin({ left: 10 }) }) }
+            Row() { ForEach([1, 2, 3, 4, 5], (): void => { Column().width(24).height(24).borderRadius(12).backgroundColor(cardFrost(this.isDark)).margin({ left: 10 }) }) }
           }.width("100%").padding({ top: 36, bottom: 16, left: 8, right: 8 })
           Column() {
             Column().width(72).height(72).borderRadius(36).backgroundColor("rgba(255,255,255,0.10)").margin({ top: 30 })
-            Column().width(140).height(56).borderRadius(28).backgroundColor("rgba(255,255,255,0.06)").margin({ top: 12 })
-            Column().width(100).height(18).borderRadius(9).backgroundColor("rgba(255,255,255,0.06)").margin({ top: 8 })
+            Column().width(140).height(56).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 12 })
+            Column().width(100).height(18).borderRadius(9).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
           }.width("100%").alignItems(HorizontalAlign.Center)
           Row() {
             ForEach([1, 2], (): void => {
               Column() {
-                Column().width(24).height(24).borderRadius(12).backgroundColor("rgba(255,255,255,0.06)")
-                Column().width(40).height(10).borderRadius(5).backgroundColor("rgba(255,255,255,0.06)").margin({ top: 8 })
-                Column().width(56).height(20).borderRadius(10).backgroundColor("rgba(255,255,255,0.06)").margin({ top: 6 })
+                Column().width(24).height(24).borderRadius(12).backgroundColor(cardFrost(this.isDark))
+                Column().width(40).height(10).borderRadius(5).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 })
+                Column().width(56).height(20).borderRadius(10).backgroundColor(cardFrost(this.isDark)).margin({ top: 6 })
               }.alignItems(HorizontalAlign.Center).layoutWeight(1)
             })
-          }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 16 }).padding(8)
+          }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 16 }).padding(8).shadow({ radius: 6, color: "rgba(64,80,110,0.05)", offsetX: 0, offsetY: 1 })
         }.width("100%").padding({ left: 20, right: 20 })
       }
 
       if (this.error.length > 0 && !this.loading) {
         Column() {
           Text(String(this.weatherIcon)).fontSize(48).margin({ top: 40 })
-          Text(String(this.error)).fontSize(16).fontColor(Color.White).textAlign(TextAlign.Center).margin({ top: 12 }).width("100%").maxLines(3)
+          Text(String(this.error)).fontSize(16).fontColor(tcPrimary(this.isDark)).textAlign(TextAlign.Center).margin({ top: 12 }).width("100%").maxLines(3)
           if (this.error.indexOf("请尝试") >= 0) {
-            Text("一键切换：").fontSize(13).fontColor("rgba(255,255,255,0.5)").margin({ top: 20, bottom: 10 }).width("100%").textAlign(TextAlign.Center)
+            Text("一键切换：").fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 20, bottom: 10 }).width("100%").textAlign(TextAlign.Center)
             Flex({ alignItems: ItemAlign.Center, wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
-              ForEach(["北京", "上海", "广州", "深圳", "大连", "青岛", "杭州", "成都"], (c: string): void => {
-                Text(c).fontSize(14).fontColor(Color.White).padding({ top: 8, bottom: 8, left: 20, right: 20 }).backgroundColor("rgba(255,255,255,0.12)").borderRadius(20).margin({ right: 8, bottom: 8 }).onClick((): void => { this.error = ""; this.loadW(c); })
+              ForEach(["北京", "上海", "广州", "深圳", "大连", "青岛", "杭州", "成都"], (c: string): void => { Text(c).fontSize(14).fontColor(tcPrimary(this.isDark)).padding({ top: 8, bottom: 8, left: 20, right: 20 }).backgroundColor(cardBg(this.isDark)).borderRadius(20).margin({ right: 8, bottom: 8 }).onClick((): void => { this.error = ""; this.loadW(c); })
               }, (c: string): string => c)
             }.width("100%").margin({ top: 4 })
           } else {
-            Button("刷新重试").margin({ top: 24 }).height(44).width(160).borderRadius(22).backgroundColor("rgba(255,255,255,0.15)").fontColor(Color.White).fontWeight(FontWeight.Bold).onClick((): void => { this.error = ""; this.loadW(this.city); })
+            Button("刷新重试").margin({ top: 24 }).height(44).width(160).borderRadius(22).backgroundColor(cardBgStrong(this.isDark)).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Bold).onClick((): void => { this.error = ""; this.loadW(this.city); })
           }
         }.width("100%").alignItems(HorizontalAlign.Center)
       }
@@ -347,26 +398,25 @@ struct Index {
           Scroll() {
             Column() {
               Row() {
-                Row() { Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(Color.White); Text("  ›").fontSize(20).fontColor("rgba(255,255,255,0.4)") }.onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/CityManage" }); })
+                Row() { Text(this.city).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)); Text("  ›").fontSize(20).fontColor(tcTertiary(this.isDark)) }.onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/CityManage" }); })
                 Blank()
                 Text("📍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.locate(); })
-                Text("🔍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.showSearch = !this.showSearch; })
-                Text(!this.isFav ? "☆" : "★").fontSize(20).margin({ left: 10 }).fontColor(this.isFav ? "#FFD700" : "rgba(255,255,255,0.6)").onClick((): void => { prefManager.toggleFavorite(this.city).then((f: string[]): void => { this.favorites = f; this.isFav = f.indexOf(this.city) >= 0; }).catch((): void => {}); })
+                Text("🔍").fontSize(18).margin({ left: 10 }).onClick((): void => { this.showSearch = !this.showSearch; if (this.showSearch) {  } })
+                Text(!this.isFav ? "☆" : "★").fontSize(20).margin({ left: 10 }).fontColor(this.isFav ? "#FFD700" : tcSecondary(this.isDark)).onClick((): void => { prefManager.toggleFavorite(this.city).then((f: string[]): void => { this.favorites = f; this.isFav = f.indexOf(this.city) >= 0; }).catch((): void => {}); })
                 Text("⚙️").fontSize(18).margin({ left: 10 }).onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/Settings" }); })
               }.width("100%").padding({ top: 36, bottom: 16 })
 
               if (this.showSearch) {
                 Row() {
-                  TextInput({ placeholder: "搜索城市..." })
-                    .height(48).layoutWeight(1).backgroundColor("rgba(255,255,255,0.12)")
-                    .fontColor(Color.White).placeholderColor("rgba(255,255,255,0.4)")
+                  TextInput({ placeholder: "搜索城市...", text: this.searchText }).height(48).layoutWeight(1).backgroundColor(this.isDark ? cardBg(this.isDark) : tcTertiary(this.isDark))
+                    .fontColor(tcPrimary(this.isDark)).placeholderColor(tcTertiary(this.isDark))
                     .borderRadius(16).padding({ left: 16 })
                     .onChange((val: string): void => { this.searchText = val; })
                     .onSubmit((): void => {
                       let q: string = cleanCityName(this.searchText.trim());
                       if (q.length > 0) { this.showSearch = false; this.searchText = ""; this.loadW(q); }
                     })
-                  Text("✕").fontSize(18).fontColor("rgba(255,255,255,0.5)").margin({ left: 8 }).width(36).height(48).textAlign(TextAlign.Center).lineHeight(48)
+                  Text("✕").fontSize(18).fontColor(tcTertiary(this.isDark)).margin({ left: 8 }).width(36).height(48).textAlign(TextAlign.Center).lineHeight(48)
                     .onClick((): void => { this.showSearch = false; this.searchText = ""; })
                 }.width("100%").margin({ bottom: 12 })
               }
@@ -374,7 +424,7 @@ struct Index {
               if (this.showSearch && this.searchHistory.length > 0) {
                 Column() {
                   Row() {
-                    Text("🕐 " + "搜索历史").fontSize(13).fontColor("rgba(255,255,255,0.4)")
+                    Text("🕐 " + "搜索历史").fontSize(13).fontColor(tcTertiary(this.isDark))
                     Blank()
                     Text("清空").fontSize(12).fontColor("rgba(255,150,150,0.7)")
                       .onClick((): void => {
@@ -386,8 +436,7 @@ struct Index {
                       })
                   }.width("100%").margin({ bottom: 8 })
                   ForEach(this.searchHistory, (city: string): void => {
-                    Text(city).fontSize(14).fontColor(Color.White).padding({ top: 6, bottom: 6, left: 14, right: 14 })
-                      .backgroundColor("rgba(255,255,255,0.06)").borderRadius(12).margin({ right: 6, bottom: 6 })
+                    Text(city).fontSize(14).fontColor(tcPrimary(this.isDark)).padding({ top: 6, bottom: 6, left: 14, right: 14 }).backgroundColor(cardSecondary(this.isDark)).borderRadius(12).margin({ right: 6, bottom: 6 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
                       .onClick((): void => { this.showSearch = false; this.searchText = ""; this.loadW(city); })
                   }, (city: string): string => city)
                 }.width("100%").margin({ bottom: 12 }).alignItems(HorizontalAlign.Start)
@@ -397,47 +446,47 @@ struct Index {
               Column() {
                 // Weather icon
                 Text(String(this.weatherIcon)).fontSize(72).margin({ top: 8 }).opacity(0.9)
-                Text(convertTempStr(this.temp, this.tempUnit)).fontSize(72).fontWeight(FontWeight.Bold).fontColor("rgba(255,255,255,0.95)").lineHeight(76).margin({ top: 4 })
-                Text(tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor("rgba(255,255,255,0.5)").margin({ top: -20, right: "20%" }).alignSelf(ItemAlign.End)
-                Text(this.weatherDesc).fontSize(24).fontWeight(FontWeight.Bold).fontColor("rgba(255,255,255,0.88)").letterSpacing(8).margin({ top: 8 })
+                Text(convertTempStr(this.temp, this.tempUnit)).fontSize(72).fontWeight(FontWeight.Bold).fontColor(tcTemp(this.isDark)).lineHeight(76).margin({ top: 4 })
+                Text(tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcTempUnit(this.isDark)).margin({ top: -20, right: "20%" }).alignSelf(ItemAlign.End)
+                Text(this.weatherDesc).fontSize(24).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).letterSpacing(8).margin({ top: 8 })
 
                 if (this.daily.length > 0) {
                   Row() {
-                    Text("\u2191").fontSize(11).fontColor("rgba(255,255,255,0.35)")
-                    Text(convertTempStr(this.daily[0].maxTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor("rgba(255,255,255,0.55)").margin({ left: 3 })
-                    Text("  /  ").fontSize(13).fontColor("rgba(255,255,255,0.2)")
-                    Text(convertTempStr(this.daily[0].minTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor("rgba(255,255,255,0.55)").margin({ right: 3 })
-                    Text("\u2193").fontSize(11).fontColor("rgba(255,255,255,0.35)")
+                    Text("\u2191").fontSize(11).fontColor(tcTertiary(this.isDark))
+                    Text(convertTempStr(this.daily[0].maxTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor(tcSecondary(this.isDark)).margin({ left: 3 })
+                    Text("  /  ").fontSize(13).fontColor(tcMuted(this.isDark))
+                    Text(convertTempStr(this.daily[0].minTemp, this.tempUnit) + "\u00B0").fontSize(16).fontColor(tcSecondary(this.isDark)).margin({ right: 3 })
+                    Text("\u2193").fontSize(11).fontColor(tcTertiary(this.isDark))
                   }.margin({ top: 6, bottom: 4 }).alignItems(VerticalAlign.Center)
                 }
 
                 Row() {
                   Column() {
                     Text("💧").fontSize(22)
-                    Text($r("app.string.humidity")).fontSize(11).fontColor("rgba(255,255,255,0.35)").margin({ top: 6 })
-                    Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ top: 4 })
+                    Text($r("app.string.humidity")).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+                    Text(this.humidity + "%").fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
                   }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-                  Column().width(1).height(36).backgroundColor("rgba(255,255,255,0.06)")
+                  Column().width(1).height(36).backgroundColor(cardFrost(this.isDark))
                   Column() {
                     Text("🌬️").fontSize(22)
-                    Text($r("app.string.wind")).fontSize(11).fontColor("rgba(255,255,255,0.35)").margin({ top: 6 })
-                    Text(this.windScale.length > 0 ? this.windScale + "级" : (this.windSpeed + "km/h")).fontSize(20).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ top: 4 })
+                    Text($r("app.string.wind")).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 6 })
+                    Text(this.windScale.length > 0 ? this.windScale + "级" : (this.windSpeed + "km/h")).fontSize(20).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 4 })
                   }.alignItems(HorizontalAlign.Center).layoutWeight(1)
-                }.width("100%").padding(18).borderRadius(20).backgroundColor("rgba(255,255,255,0.06)").margin({ top: 20 }).backgroundBlurStyle(BlurStyle.Thin)
-              }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 }).alignItems(HorizontalAlign.Center).transition({ type: TransitionType.Insert, opacity: 0 })
+                }.width("100%").padding(18).borderRadius(20).backgroundColor(cardSecondary(this.isDark)).margin({ top: 20 }).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
+              }.width("100%").padding(20).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 8 }).alignItems(HorizontalAlign.Center).shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 }).backdropBlur(24).border({ width: 0.5, color: cardBorder(this.isDark) }).transition({ type: TransitionType.Insert, opacity: 0 })
 
               if (this.hourly.length > 0 && this.error.length === 0) {
                 Column() {
-                  Row() { Text("⏰ 逐小时预报").fontSize(14).fontColor("rgba(255,255,255,0.45)").letterSpacing(3); Blank(); if (this.lastUpdated.length > 0) { Text("更新 " + this.lastUpdated).fontSize(11).fontColor("rgba(255,255,255,0.2)") } }.width("100%").margin({ bottom: 12 })
-                  Scroll() {
-                    Row() {
-                      ForEach(this.hourly, (h: HourlyForecast): void => {
+                  Row() { Text("⏰ 逐小时预报").fontSize(14).fontColor(tcTertiary(this.isDark)).letterSpacing(3); Blank(); if (this.lastUpdated.length > 0) { Text("更新 " + this.lastUpdated).fontSize(11).fontColor(tcMuted(this.isDark)) } }.width("100%").margin({ bottom: 12 })
+                  List({ space: 8 }) {
+                    ForEach(this.hourly, (h: HourlyForecast): void => {
+                      ListItem() {
                         Column() {
-                          Text(timeLabel(h.time)).fontSize(12).fontColor("rgba(255,255,255,0.45)").margin({ bottom: 8 })
+                          Text(timeLabel(h.time)).fontSize(12).fontColor(tcTertiary(this.isDark)).margin({ bottom: 8 })
                           Text(String(h.weatherIcon)).fontSize(22).margin({ bottom: 6 })
-                          Text(convertTempStr(h.temp, this.tempUnit) + "°").fontSize(17).fontWeight(FontWeight.Bold).fontColor(Color.White)
-                          if (h.precipProb !== "--") { Text(h.precipProb + "%").fontSize(10).fontColor("rgba(123,164,253,0.7)").margin({ top: 4 }) }
-                        }.width(68).padding({ top: 14, bottom: 12 }).borderRadius(22).backgroundColor("rgba(255,255,255,0.06)")
+                          Text(convertTempStr(h.temp, this.tempUnit) + "°").fontSize(17).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark))
+                          if (h.precipProb !== "--") { Text(h.precipProb + "%").fontSize(10).fontColor(accentBlue).margin({ top: 4 }) }
+                        }.width(68).padding({ top: 14, bottom: 12 }).borderRadius(22).backgroundColor(cardAccent(this.isNight)).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
                         .margin({ right: 8 })
                         .onClick((): void => {
                           this.popTime = h.time; this.popTemp = h.temp; this.popFeelsLike = h.feelsLike;
@@ -447,32 +496,32 @@ struct Index {
                           this.popWeatherIcon = h.weatherIcon; this.popWeatherDesc = h.weatherDesc;
                           this.showHourlyPop = true;
                         })
-                      }, (h: HourlyForecast): string => h.time)
-                    }
-                  }.scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off).edgeEffect(EdgeEffect.Spring).width("100%")
-                }.width("100%").padding(16).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 16 })
+                      }
+                    }, (h: HourlyForecast): string => h.time)
+                  }.listDirection(Axis.Horizontal).width("100%").edgeEffect(EdgeEffect.Spring).scrollBar(BarState.Off)
+                }.width("100%").padding(16).borderRadius(28).backgroundColor(cardSecondary(this.isDark)).margin({ top: 16 }).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
               }
 // Daily forecast
               if (this.daily.length > 0 && this.error.length === 0) {
                 Column() {
-                  Text("📅 未来天气").fontSize(14).fontColor("rgba(255,255,255,0.45)").margin({ bottom: 10 }).width("100%")
+                  Text("📅 未来天气").fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ bottom: 10 }).width("100%")
                   ForEach(this.daily, (d: DailyForecast): void => {
                     Row() {
-                      Text(d.dayOfWeek).fontSize(15).fontColor(Color.White).width(44)
+                      Text(d.dayOfWeek).fontSize(15).fontColor(tcPrimary(this.isDark)).width(44)
                       Text(d.weatherIcon).fontSize(20).margin({ left: 6 }).width(28).textAlign(TextAlign.Center)
-                      Text(d.weatherDesc).fontSize(14).fontColor("rgba(255,255,255,0.5)").width(50).textAlign(TextAlign.Center).margin({ left: 4 })
+                      Text(d.weatherDesc).fontSize(14).fontColor(tcSecondary(this.isDark)).width(50).textAlign(TextAlign.Center).margin({ left: 4 })
                       Blank()
-                      Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14).fontColor("rgba(255,255,255,0.4)").margin({ right: 8 })
-                      Column() { Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4).borderRadius(2).backgroundColor("#7BA4FD").margin({ left: this.barOffset(d.minTemp) }) }.width(80).height(4).backgroundColor("rgba(255,255,255,0.1)").borderRadius(2).margin({ right: 8 })
-                      Text(convertTempStr(d.maxTemp, this.tempUnit) + "°").fontSize(14).fontWeight(FontWeight.Bold).fontColor(Color.White).width(36).textAlign(TextAlign.End)
-                      Text("›").fontSize(18).fontColor("rgba(255,255,255,0.2)").margin({ left: 4 })
+                      Text(convertTempStr(d.minTemp, this.tempUnit) + "°").fontSize(14).fontColor(tcTertiary(this.isDark)).margin({ right: 8 })
+                      Column() { Column().width(this.barWidth(d.minTemp, d.maxTemp)).height(4).borderRadius(2).backgroundColor("#7BA4FD").margin({ left: this.barOffset(d.minTemp) }) }.width(80).height(4).backgroundColor(cardFrost(this.isDark)).borderRadius(2).margin({ right: 8 })
+                      Text(convertTempStr(d.maxTemp, this.tempUnit) + "°").fontSize(14).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width(36).textAlign(TextAlign.End)
+                      Text("›").fontSize(18).fontColor(tcMuted(this.isDark)).margin({ left: 4 })
                     }.width("100%").padding({ top: 10, bottom: 10 }).borderRadius(16).onClick((): void => { this.getUIContext().getRouter().pushUrl({ url: "pages/Detail", params: { date: d.date, dayOfWeek: d.dayOfWeek, weatherIcon: d.weatherIcon, weatherDesc: d.weatherDesc, maxTemp: d.maxTemp, minTemp: d.minTemp, chanceOfRain: d.chanceOfRain } }); })
                   }, (d: DailyForecast): string => d.date)
-                }.width("100%").padding(14).borderRadius(28).backgroundColor(cardFrost(this.isDark)).margin({ top: 16 }).padding(8)
+                }.width("100%").padding(14).borderRadius(28).backgroundColor(cardSecondary(this.isDark)).margin({ top: 16 }).padding(8).shadow({ radius: 6, color: cardShadowColor(this.isDark), offsetY: 2 }).backdropBlur(18).border({ width: 0.5, color: cardBorderSub(this.isDark) })
               }
 
               if (this.lastUpdated.length > 0) {
-                Text($r("app.string.last_update") + " " + this.lastUpdated).fontSize(11).fontColor("rgba(255,255,255,0.18)").letterSpacing(1).margin({ top: 20, bottom: 4 }).width("100%").textAlign(TextAlign.Center)
+                Text($r("app.string.last_update") + " " + this.lastUpdated).fontSize(11).fontColor(tcTertiary(this.isDark)).letterSpacing(1).margin({ top: 20, bottom: 4 }).width("100%").textAlign(TextAlign.Center)
               }
               Blank().height(40)
             }.width("100%")
@@ -488,12 +537,12 @@ struct Index {
       if (this.showHourlyPop) {
         Column() {
           Column() {
-            Row() { Text(this.popWeatherIcon).fontSize(36).margin({ right: 10 }); Column() { Text(this.popWeatherDesc).fontSize(18).fontWeight(FontWeight.Bold).fontColor(Color.White); Text(this.popTime.length >= 16 ? this.popTime.substring(11, 16) + " " + this.popTime.substring(0, 10) : this.popTime).fontSize(13).fontColor("rgba(255,255,255,0.45)").margin({ top: 2 }) }.alignItems(HorizontalAlign.Start); Blank(); Text("✕").fontSize(22).fontColor("rgba(255,255,255,0.5)").width(32).height(32).textAlign(TextAlign.Center).onClick((): void => { this.showHourlyPop = false; }) }.width("100%").margin({ bottom: 16 })
-            Text(convertTempStr(this.popTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor(Color.White).width("100%").textAlign(TextAlign.Center).margin({ bottom: 16 })
+            Row() { Text(this.popWeatherIcon).fontSize(36).margin({ right: 10 }); Column() { Text(this.popWeatherDesc).fontSize(18).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)); Text(this.popTime.length >= 16 ? this.popTime.substring(11, 16) + " " + this.popTime.substring(0, 10) : this.popTime).fontSize(13).fontColor(tcTertiary(this.isDark)).margin({ top: 2 }) }.alignItems(HorizontalAlign.Start); Blank(); Text("✕").fontSize(22).fontColor(tcTertiary(this.isDark)).width(32).height(32).textAlign(TextAlign.Center).onClick((): void => { this.showHourlyPop = false; }) }.width("100%").margin({ bottom: 16 })
+            Text(convertTempStr(this.popTemp, this.tempUnit) + tempUnitLabel(this.tempUnit)).fontSize(40).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).width("100%").textAlign(TextAlign.Center).margin({ bottom: 16 })
             Row() { this.detailItem("💧", $r("app.string.humidity"), this.popHumidity + "%"); this.detailItem("🌬️", $r("app.string.wind"), this.popWindScale.length > 0 ? this.popWindScale : this.popWindSpeed); this.detailItem("☀️", "UV", this.popUvIndex !== "--" ? this.popUvIndex : "-") }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
             Row() { this.detailItem("🌧️", $r("app.string.precip_prob"), (this.popPrecipProb !== "--" ? this.popPrecipProb : "-") + "%"); this.detailItem("💧", $r("app.string.precip_amount"), (this.popPrecip !== "--" ? this.popPrecip : "-") + "mm"); this.detailItem("🌫️", $r("app.string.pressure"), (this.popPressure !== "--" ? this.popPressure : "-") + "hPa") }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 8 })
             Row() { this.detailItem("🌡️", $r("app.string.feels_like"), convertTempStr(this.popFeelsLike, this.tempUnit) + tempUnitLabel(this.tempUnit)) }.width("100%").padding(12).borderRadius(16).backgroundColor(cardBgStrong(this.isDark)).margin({ bottom: 12 })
-            Button($r("app.string.close")).width("100%").height(44).borderRadius(22).backgroundColor("rgba(255,255,255,0.12)").fontColor(Color.White).fontWeight(FontWeight.Bold).onClick((): void => { this.showHourlyPop = false; })
+            Button($r("app.string.close")).width("100%").height(44).borderRadius(22).backgroundColor(cardBg(this.isDark)).fontColor(tcPrimary(this.isDark)).fontWeight(FontWeight.Bold).onClick((): void => { this.showHourlyPop = false; })
           }.width("100%").padding(24).borderRadius(32).backgroundColor(cardFrost(this.isDark))
         }.width("100%").height("100%").padding(24).justifyContent(FlexAlign.Center).backgroundColor("rgba(0,0,0,0.5)").onClick((): void => { this.showHourlyPop = false; })
       }
@@ -503,14 +552,14 @@ struct Index {
   }
 
   @Builder detailItem(icon: string, label: ResourceStr, value: string) {
-    Column() { Text(icon).fontSize(18); Text(label).fontSize(11).fontColor("rgba(255,255,255,0.4)").margin({ top: 4 }); Text(value).fontSize(15).fontWeight(FontWeight.Bold).fontColor(Color.White).margin({ top: 2 }) }.alignItems(HorizontalAlign.Center).layoutWeight(1)
+    Column() { Text(icon).fontSize(18); Text(label).fontSize(11).fontColor(tcTertiary(this.isDark)).margin({ top: 4 }); Text(value).fontSize(15).fontWeight(FontWeight.Bold).fontColor(tcPrimary(this.isDark)).margin({ top: 2 }) }.alignItems(HorizontalAlign.Center).layoutWeight(1)
   }
 
   pageTransition() {
-    PageTransitionEnter({ type: RouteType.Push, duration: 350, curve: Curve.EaseOut }).slide(SlideEffect.Right)
-    PageTransitionExit({ type: RouteType.Push, duration: 250, curve: Curve.EaseIn }).slide(SlideEffect.Left)
-    PageTransitionEnter({ type: RouteType.Pop, duration: 300, curve: Curve.EaseOut }).slide(SlideEffect.Left)
-    PageTransitionExit({ type: RouteType.Pop, duration: 250, curve: Curve.EaseIn }).slide(SlideEffect.Right)
+    PageTransitionEnter({ type: RouteType.Push, duration: 400, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(1)
+    PageTransitionExit({ type: RouteType.Push, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(0)
+    PageTransitionEnter({ type: RouteType.Pop, duration: 350, curve: Curve.EaseInOut }).slide(SlideEffect.Left).opacity(1)
+    PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
 
@@ -520,8 +569,10 @@ function timeLabel(t: string): string {
   return t;
 }
 
-function bgCol(isDark: boolean, bg: string): Array<[ResourceColor, number]> {
-  return bgGradient(isDark, bg);
+function bgCol(isNight: boolean, weatherDesc: string): Array<[ResourceColor, number]> {
+  let wt: WeatherType = getWeatherType(weatherDesc);
+  if (isNight) { return nightGradient(wt); }
+  return dayGradient(wt);
 }
 
 interface StarPos {
@@ -583,6 +634,12 @@ const starPositions: StarPos[] = [
   { x: '42%', y: '44%', size: 2, opacity: 0.38 },
   { x: '59%', y: '57%', size: 2.5, opacity: 0.20 }
 ];
+
+
+
+
+
+
 
 
 
