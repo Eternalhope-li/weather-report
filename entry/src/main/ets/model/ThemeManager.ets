@@ -113,3 +113,11 @@ export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
       return [["#070D20", 0], ["#0E1630", 0.5], ["#121C36", 1]];
   }
 }
+
+// ---- 兼容函数别名 ----
+export function bgGradient(isNight: boolean, weatherBg: string): Array<[ResourceColor, number]> {
+  let wt: WeatherType = getWeatherType(weatherBg);
+  if (isNight) { return nightGradient(wt); }
+  return dayGradient(wt);
+}
+
