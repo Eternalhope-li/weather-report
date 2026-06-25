@@ -6,7 +6,7 @@ import {
   cardMain, cardSub, cardAccent, cardSecondary, cardFrost,
   cardBg, cardBgStrong, cardAux, cardShadowColor, cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo,
-  accentBlue, accentBlueLight, accentBlueDark,
+  accentBlue, accentBlueLight, accentBlueDark, iconNight, splitLineNight,
   TC_DAY_PRIMARY, TC_DAY_SECONDARY, TC_DAY_TERTIARY, TC_DAY_MUTED,
   TC_DAY_TEMP, TC_DAY_TEMP_UNIT, TC_DAY_HILO,
   TC_NIGHT_PRIMARY, TC_NIGHT_SECONDARY, TC_NIGHT_TERTIARY, TC_NIGHT_MUTED,
@@ -17,7 +17,7 @@ export {
   cardMain, cardSub, cardAccent, cardSecondary, cardFrost,
   cardBg, cardBgStrong, cardAux, cardShadowColor, cardBorder, cardBorderSub,
   tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo,
-  accentBlue, accentBlueLight, accentBlueDark,
+  accentBlue, accentBlueLight, accentBlueDark, iconNight, splitLineNight,
   TC_DAY_PRIMARY, TC_DAY_SECONDARY, TC_DAY_TERTIARY, TC_DAY_MUTED,
   TC_DAY_TEMP, TC_DAY_TEMP_UNIT, TC_DAY_HILO,
   TC_NIGHT_PRIMARY, TC_NIGHT_SECONDARY, TC_NIGHT_TERTIARY, TC_NIGHT_MUTED,
@@ -93,30 +93,23 @@ export function dayGradient(wt: WeatherType): Array<[ResourceColor, number]> {
 //  夜间渐变
 // ============================================================
 export function nightGradient(wt: WeatherType): Array<[ResourceColor, number]> {
-  // 深空静夜风：靛蓝→深紫→藏青 分层渐变
+  // 用户指定：深空黑→暗蓝渐变
   switch (wt) {
     case WeatherType.SUNNY:
-      return [["#0A0E1A", 0], ["#0E1428", 0.25], ["#121A34", 0.55], ["#162044", 0.8], ["#1A2648", 1]];
+      return [["#070D20", 0], ["#0E1630", 0.35], ["#121C36", 0.7], ["#162242", 1]];
     case WeatherType.CLOUDY:
-      return [["#0C1020", 0], ["#10162E", 0.3], ["#141C38", 0.6], ["#182240", 1]];
+      return [["#070C1E", 0], ["#0E142C", 0.35], ["#121A34", 0.7], ["#162040", 1]];
     case WeatherType.OVERCAST:
-      return [["#0E1224", 0], ["#121830", 0.4], ["#161E3A", 0.7], ["#1A2440", 1]];
+      return [["#080C1E", 0], ["#0E142C", 0.4], ["#121A34", 0.7], ["#161E3E", 1]];
     case WeatherType.LIGHT_RAIN:
-      return [["#080C18", 0], ["#0C1022", 0.3], ["#10162E", 0.6], ["#141C36", 1]];
+      return [["#060A18", 0], ["#0A1026", 0.35], ["#0E162E", 0.7], ["#121C36", 1]];
     case WeatherType.HEAVY_RAIN:
-      return [["#060A12", 0], ["#080C1A", 0.3], ["#0C1022", 0.6], ["#10162A", 1]];
+      return [["#040812", 0], ["#080C1E", 0.35], ["#0C1028", 0.7], ["#101630", 1]];
     case WeatherType.SNOW:
-      return [["#0E1226", 0], ["#121A32", 0.3], ["#182240", 0.6], ["#1E2A4A", 1]];
+      return [["#080C22", 0], ["#0E1634", 0.35], ["#142044", 0.7], ["#18284A", 1]];
     case WeatherType.FOG:
-      return [["#10142A", 0], ["#161C38", 0.4], ["#1A2242", 0.7], ["#1E2848", 1]];
+      return [["#080E22", 0], ["#0E1634", 0.4], ["#141E42", 0.7], ["#182448", 1]];
     default:
-      return [["#0A0E1A", 0], ["#10162E", 0.5], ["#182240", 1]];
+      return [["#070D20", 0], ["#0E1630", 0.5], ["#121C36", 1]];
   }
 }
-export function bgGradient(isNight: boolean, weatherBg: string): Array<[ResourceColor, number]> {
-  let wt: WeatherType = getWeatherType(weatherBg);
-  if (isNight) { return nightGradient(wt); }
-  return dayGradient(wt);
-}
-
-

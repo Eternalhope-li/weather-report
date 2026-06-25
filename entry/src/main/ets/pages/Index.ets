@@ -1,6 +1,6 @@
 ﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
-import { cardMain, cardSecondary, cardAccent, cardFrost, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
+import { cardMain, cardSecondary, cardAccent, cardFrost, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, iconNight, splitLineNight, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
 import { RainSnowEffect } from "../components/RainSnowEffect";
 import weatherService from "../service/WeatherService";
 import prefManager from "../service/PreferenceManager";
@@ -536,7 +536,9 @@ struct Index {
   @Builder mainTempCard() {
     Column() {
       // 天气图标
-      Text(this.weatherIcon).fontSize(72)
+      // 天气图标（夜间替换为柔和月光）
+ 
+      Text(this.isDark && this.weatherIcon === "\u2600\uFE0F" ? "\uD83C\uDF19" : this.weatherIcon).fontSize(72)
       // 天气描述
       Text(this.weatherDesc).fontSize(20).fontWeight(FontWeight.Medium)
         .fontColor(tcSecondary(this.isDark)).margin({ top: 8 })
@@ -551,7 +553,7 @@ struct Index {
     .width("100%").padding(30).alignItems(HorizontalAlign.Center)
     .backgroundColor(cardMain(this.isDark)).backdropBlur(16)
     .border({ width: 0.5, color: cardBorder(this.isDark) }).borderRadius(32)
-    .shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 })
+    .shadow({ radius: 10, color: cardShadowColor(this.isDark), offsetY: 3 }).shadow(this.isDark ? { radius: 12, color: "rgba(255,240,200,0.15)", offsetY: 0 } : { radius: 0 })
   }
 
   /** 湿度 + 风力详细卡片 */
@@ -566,7 +568,7 @@ struct Index {
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
       // 分隔
-      Column().width(0.5).height(40).backgroundColor(cardBorderSub(this.isDark))
+      Column().width(0.5).height(40).backgroundColor(this.isDark ? splitLineNight : cardBorderSub(this.isDark))
 
       // 风力
       Column() {
@@ -578,7 +580,7 @@ struct Index {
       }.alignItems(HorizontalAlign.Center).layoutWeight(1)
 
       // 分隔
-      Column().width(0.5).height(40).backgroundColor(cardBorderSub(this.isDark))
+      Column().width(0.5).height(40).backgroundColor(this.isDark ? splitLineNight : cardBorderSub(this.isDark))
 
       // UV / 空气质量
       Column() {

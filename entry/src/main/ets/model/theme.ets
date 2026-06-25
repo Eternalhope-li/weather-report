@@ -1,7 +1,7 @@
 ﻿/**
  * theme — 全局统一主题常量
  * 日间：通透蓝白磨砂玻璃
- * 夜间：深空静谧风 - 靛蓝深色基调，暖白文字，夜空沉浸感
+ * 夜间：半透深蓝磨砂 + 3档淡蓝白文字 + 冰蓝图标
  */
 // ==================== 日间卡片 ====================
 export const cardMainDay = "rgba(255,255,255,0.35)";
@@ -9,10 +9,10 @@ export const cardSubDay = "rgba(255,255,255,0.22)";
 export const cardAccentDay = "rgba(255,255,255,0.42)";
 export const cardAuxDay = "rgba(59,120,194,0.10)";
 
-// ==================== 夜间卡片（夜空深蓝基调）====================
-export const cardMainNight = "rgba(14,18,32,0.90)";
-export const cardSubNight = "rgba(18,24,40,0.85)";
-export const cardAccentNight = "rgba(22,28,48,0.92)";
+// ==================== 夜间卡片（半透深蓝，用户指定）====================
+export const cardMainNight = "rgba(30,45,80,0.45)";
+export const cardSubNight = "rgba(30,45,80,0.40)";
+export const cardAccentNight = "rgba(30,50,85,0.50)";
 export const cardAuxNight = "rgba(80,160,255,0.12)";
 // 夜间纯色备用
 export const cardSolidNight = "#0E1222";
@@ -21,10 +21,10 @@ export const cardSolidSubNight = "#141A2E";
 // ==================== 边框 & 阴影 ====================
 export const borderDay = "rgba(255,255,255,0.40)";
 export const borderSubDay = "rgba(255,255,255,0.30)";
-export const borderNight = "rgba(100,160,240,0.12)";
-export const borderSubNight = "rgba(100,160,240,0.08)";
+export const borderNight = "rgba(145,175,255,0.18)";   // 1vp淡蓝描边
+export const borderSubNight = "rgba(145,175,255,0.12)"; // 弱化描边
 export const shadowDay = "rgba(60,100,150,0.12)";
-export const shadowNight = "rgba(0,0,0,0.60)";
+export const shadowNight = "rgba(0,0,0,0.50)";
 
 // ==================== 日间文字 ====================
 export const TC_DAY_PRIMARY = "#0F243D";
@@ -36,15 +36,19 @@ export const TC_DAY_TEMP = "#0F243D";
 export const TC_DAY_TEMP_UNIT = "#2B6CB2";
 export const TC_DAY_HILO = "#2C4A6E";
 
-// ==================== 夜间文字（3档淡蓝白，护眼清晰）====================
-export const TC_NIGHT_PRIMARY = "#F2F6FC";    // 第1档：亮白（主要文字、温度）
-export const TC_NIGHT_ACCENT = "#80C0FF";     // 冰蓝（温度数值、图标）
-export const TC_NIGHT_SECONDARY = "#DCE2F0";  // 第2档：淡蓝白（辅助文字）
-export const TC_NIGHT_TERTIARY = "#C4CCE0";   // 第3档：浅灰蓝（次要说明）
-export const TC_NIGHT_MUTED = "#98A8C4";      // 暗灰蓝（时间戳等最弱文字）
-export const TC_NIGHT_TEMP = "#F2F6FC";       // 温度主色（同第1档）
-export const TC_NIGHT_TEMP_UNIT = "#80C0FF";  // 温度单位（冰蓝）
-export const TC_NIGHT_HILO = "#DCE2F0";       // 高低温度（第2档）
+// ==================== 夜间文字（3档淡蓝白，用户指定）====================
+export const TC_NIGHT_PRIMARY = "rgba(255,255,255,0.96)";       // 第1档：接近纯白（大温度、湿度值等）
+export const TC_NIGHT_ACCENT = "rgba(150,190,255,0.85)";        // 冰蓝（图标、装饰）
+export const TC_NIGHT_SECONDARY = "rgba(220,235,255,0.82)";     // 第2档：浅天蓝（天气描述、标签）
+export const TC_NIGHT_TERTIARY = "rgba(180,200,240,0.60)";      // 第3档：淡蓝灰（体感、云量、时间戳）
+export const TC_NIGHT_MUTED = "rgba(150,175,220,0.40)";         // 最弱（水印类）
+export const TC_NIGHT_TEMP = "rgba(255,255,255,0.96)";          // 大温度（同第1档）
+export const TC_NIGHT_TEMP_UNIT = "rgba(150,190,255,0.85)";     // 温度单位（冰蓝）
+export const TC_NIGHT_HILO = "rgba(220,235,255,0.82)";          // 高低温度（第2档）
+
+// ==================== 图标统一色 ====================
+export const iconNight = "rgba(150,190,255,0.85)";               // 柔和冰蓝图标
+export const splitLineNight = "rgba(130,160,240,0.22)";         // 分割线
 
 // ==================== 函数接口 ====================
 export function cardMain(isNight: boolean): string {
