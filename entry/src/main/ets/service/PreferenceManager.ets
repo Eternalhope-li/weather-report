@@ -221,6 +221,9 @@ class PreferenceManager {
     if (this.store === null) return;
     try {
       await this.store.executeSql('DELETE FROM weather_cache');
+      await this.store.executeSql('DELETE FROM location_cache');
+      await this.saveSetting('favorites', '[]');
+      await this.saveSetting('last_city', '');
     } catch (e) {
       console.error('clearAllCache error: ' + JSON.stringify(e));
     }
@@ -246,9 +249,11 @@ class PreferenceManager {
     if (this.store === null) return [];
     try {
       let val: string = await this.getSetting('favorites', '[]');
+      if (val === null || val === undefined || val.length === 0) { return []; }
       return JSON.parse(val) as string[];
     } catch (e) {
       console.error('getFavorites error: ' + JSON.stringify(e));
+      await this.saveSetting('favorites', '[]');
       return [];
     }
   }

@@ -152,7 +152,7 @@ struct Index {
           this.refreshInterval = r[0].refreshInterval;
           this.setupAutoRefresh();
           this.favorites = r[1];
-          if (this.favorites.indexOf(this.city) >= 0) { this.isFav = true; }
+          this.isFav = this.favorites.indexOf(this.city) >= 0;
           this.history = r[2];
         }).catch((): void => {});
 
@@ -298,6 +298,8 @@ struct Index {
     // 更新天气类型用于背景渐变和粒子特效
     let wt: WeatherType = getWeatherType(data.current.weatherDesc);
     this.rainSnowType = particleType(wt);
+    // 切换城市时检查当前城市是否已收藏
+    this.isFav = this.favorites.indexOf(data.city) >= 0;
   }
 
   /** 优先展示本地缓存的天气数据 */
