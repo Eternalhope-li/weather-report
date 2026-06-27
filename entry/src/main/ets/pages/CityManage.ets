@@ -99,6 +99,7 @@ struct CityManage {
           colors: bgGradient(this.isDark, "")
         })
 
+
       Column() {
         // 顶部标题栏
         Row() {
@@ -194,6 +195,9 @@ struct CityManage {
     PageTransitionExit({ type: RouteType.Pop, duration: 300, curve: Curve.EaseInOut }).slide(SlideEffect.Right).opacity(0)
   }
 }
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
+﻿import { WeatherData, CurrentWeather, HourlyForecast, DailyForecast } from "../model/WeatherData";
 import { convertTempStr, tempUnitLabel, cleanCityName } from "../model/TemperatureConverter";
 import { cardMain, cardSecondary, cardAccent, cardFrost, cardShadowColor, cardBorder, cardBorderSub, accentBlue, tcPrimary, tcSecondary, tcTertiary, tcMuted, tcTemp, tcTempUnit, tcHiLo, iconNight, splitLineNight, getWeatherType, WeatherType, particleType, dayGradient, nightGradient } from "../model/ThemeManager";
 import { RainSnowEffect } from "../components/RainSnowEffect";
@@ -879,7 +879,7 @@ struct Index {
       }
     }
     .width("100%").height("100%").padding(20)
-    .backgroundColor(cardAccent(this.isDark || this.isNight)).backdropBlur(6)
+    .backgroundColor("rgba(255,255,255,0.03)").backdropBlur(100)
   }
 
   /** 逐小时详情弹窗 - 全屏置顶隔离渲染 */
